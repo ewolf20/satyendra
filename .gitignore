@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+#Secret JSON files, e.g. API tokens
+
+*secret.json 
+
+#Local JSON configuration, e.g. system paths to saving directories
+
+*local.json
