@@ -136,3 +136,10 @@ dmypy.json
 #Local JSON configuration, e.g. system paths to saving directories
 
 *local.json
+
+#Test code 
+*test*
+
+#Mac-specific 
+.DS_Store
+
