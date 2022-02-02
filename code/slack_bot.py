@@ -9,6 +9,18 @@ DEFAULT_CHANNEL = "#bot_notifications"
 
 class SlackBot():
 
+    """Initialization method
+
+    Parameters:
+
+        channel: The channel to which the bot should post. By default, goes to #bot_notifications
+
+        token: The bot token to use to authenticate. If none is provided, it takes it from a JSON config file.
+
+    Notes: The method also imports a JSON file listing members of BEC1 whom it would be relevant to mention, allowing 
+    them to be mentioned in the post_message method.
+    """
+
     def __init__(self, channel = DEFAULT_CHANNEL, token = None):
         if(token is None):
             from .. import secrets as s
@@ -24,6 +36,17 @@ class SlackBot():
         self.ids_dict = ids_dict
 
 
+    """Method for posting messages.
+
+    Given a message, posts it to the channel configured in the __init__ file. Optionally, mentions various members of the channel (e.g. @Eric Wolf).
+
+    Parameters:
+        message (str): The message to be sent
+        mention: A list of string keys indicating which users should be mentioned. Syntax is 'Firstname_Lastname', and they must match an entry in
+            the slack member ids JSON file.
+        mention_all (bool): If true, mentions all members listed in the member ids file.
+    """
+
 
     def post_message(self, message, mention = [], mention_all = False):
         try:
@@ -38,6 +61,16 @@ class SlackBot():
             response = self.client.chat_postMessage(channel = self.channel, text = message)
         except SlackApiError as e:
             raise e
+
+    """Uploads a file.
+
+    Given a file, uploads it to slack and posts it in the channel configured for the bot.
+
+    Parameters:
+        file_path: The path to the file to be uploaded. Relative and absolute seem to work.
+
+        file_name: The name of the file after it is uploaded to Slack.
+    """
 
     def upload_file(self, file_path, file_name = "Slackbot_File"):
         try:
