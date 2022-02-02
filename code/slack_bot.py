@@ -1,6 +1,7 @@
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+import os
 import json 
 import importlib.resources as pkg_resources
 
@@ -69,10 +70,12 @@ class SlackBot():
     Parameters:
         file_path: The path to the file to be uploaded. Relative and absolute seem to work.
 
-        file_name: The name of the file after it is uploaded to Slack.
+        file_name: The name of the file after it is uploaded to Slack. If None, the name of the file on the host system is copied.
     """
 
-    def upload_file(self, file_path, file_name = "Slackbot_File"):
+    def upload_file(self, file_path, file_name = None):
+        if(file_name is None):
+            file_name = os.path.basename(file_path)
         try:
             response = self.client.files_upload(channels = self.channel, file = file_path, title = file_name)
         except SlackApiError as e:
