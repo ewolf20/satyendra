@@ -41,7 +41,7 @@ class SlackBot():
 
     def upload_file(self, file_path, file_name = "Slackbot_File"):
         try:
-            response = self.client.files_upload(channel = self.channel, file = file_path, title = file_name)
+            response = self.client.files_upload(channels = self.channel, file = file_path, title = file_name)
         except SlackApiError as e:
             raise e
 
