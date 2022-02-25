@@ -6,12 +6,13 @@ import datetime
 import numpy as np
 
 from astropy.io import fits
-from utility_functions import load_breadboard_client, get_newest_run_dict
+from PIL import Image, UnidentifiedImageError
 
-from PIL import Image
+from satyendra.code.utility_functions import load_breadboard_client, get_newest_run_dict
 
 
-DATETIME_FORMAT_STRING = "%m-%d-%y;%H-%M-%S"
+
+DATETIME_FORMAT_STRING = "%m-%d-%y %H:%M:%S"
 
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
@@ -86,7 +87,7 @@ class ImageWatchdog():
     def _save_run_in_no_id_folder(self, image_dict, timestamp):
         for image_name in image_dict:
             image = image_dict[image_name] 
-            image_array_stack = np.stack(*image, axis = -1)
+            image_array_stack = np.stack(image, axis = -1)
             timestamp_string = timestamp.strftime(DATETIME_FORMAT_STRING)
             timestamped_image_name = timestamp_string + "_" + image_name
             image_save_path = os.path.join(self.no_id_folder_path, timestamped_image_name + ".fits")
@@ -106,6 +107,8 @@ class ImageWatchdog():
     aggregate them into a run's worth of images, then moves them to the no_id_folder. 
     Discards all frames in the watchfolder if it fails to do so within the time stipulated by 
     lost_frame_patience.
+
+    Returns: True if an image has successfully been aggregated into the watchfolder; false otherwise.
     
     Remark: Only matches frames if their names contain one of the strings imagename_framename
     corresponding to an entry in self.image_specification_dict."""
@@ -118,15 +121,15 @@ class ImageWatchdog():
             image_dict = {}
             for expected_image_name in self.image_specification_dict:
                 image_dict[expected_image_name] = []
-                for expected_frame_name in self.image_specification_dict:
+                for expected_frame_name in self.image_specification_dict[expected_image_name]:
                     image_dict[expected_image_name].append(None)
             #Create a list to store the frame pathnames we've already checked
             #TODO Make more elegant!
             examined_frame_filenames_list = []
             #Loop while waiting for new frames
             counter = 0
-            while(time.time() - start_time < self.lost_frame_patience):
-                frame_filenames_list = self.get_frame_filenames_in_watchfolder() 
+            while(time.time() - start_time < self.lost_frame_patience and counter < self.total_frames_per_run):
+                frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
                 for frame_filename in frame_filenames_list:
                     if(frame_filename in examined_frame_filenames_list):
                         continue
@@ -141,19 +144,25 @@ class ImageWatchdog():
                 time.sleep(sleep_time)
             if(counter == self.total_frames_per_run):
                 self._save_run_in_no_id_folder(image_dict, datetime.datetime.today())
-            self._flush_watchfolder()
+                self._flush_watchfolder() 
+                return True 
+            else:
+                self._flush_watchfolder()
+                return False
+        else:
+            return False
                 
 
     def _flush_watchfolder(self):
         timestamp = datetime.datetime.today() 
         timestamp_string = timestamp.strftime(DATETIME_FORMAT_STRING)
-        frame_filenames_list = self._get_frames_in_watchfolder() 
+        frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
         for frame_filename in frame_filenames_list:
             frame_pathname = os.path.join(self.watchfolder_path, frame_filename)
             if(self.delete_lost_frames):
                 os.remove(frame_pathname)
             else:
-                timestamped_frame_filename = DATETIME_FORMAT_STRING + "_" + frame_filename
+                timestamped_frame_filename = timestamp_string + "_" + frame_filename
                 lost_frames_pathname = os.path.join(self.lost_frame_path, timestamped_frame_filename) 
                 os.rename(frame_pathname, lost_frames_pathname)
 
@@ -177,6 +186,7 @@ class ImageWatchdog():
 
 
 
+    #TODO: Remove the retry_time kludge and actually check if the file is done writing. 
     """
     Loads a camera frame into numpy array format
     
@@ -189,10 +199,22 @@ class ImageWatchdog():
     frame_type: A string specifying the type of frame to load as a numpy array. Currently, options are 
         'tiff8': An 8-bit (greyscale) tiff file. 
         'tiff16': A 16-bit (greyscale) tiff file.
+    retry_time: Time to wait after a PIL.UnidentifiedImageError to try reloading the image
+
+    Remark: An error can occur if the watchdog attempts to load an image as it is being saved; the filename 
+    will be present, but the image will be unreadable by PIL. The retry_time is a workaround to avoid this. 
     """
     @staticmethod 
-    def _load_frame_as_array(frame_pathname, frame_type):
-        SUPPORTED_FRAMETYPES_STRING = " tiff8 tiff16" 
+    def _load_frame_as_array(frame_pathname, frame_type, retry_time = 0.01):
+        try:
+            return ImageWatchdog._load_frame_as_array_helper(frame_pathname, frame_type)
+        except UnidentifiedImageError:
+            time.sleep(retry_time)
+            return ImageWatchdog._load_frame_as_array_helper(frame_pathname, frame_type)
+
+
+    @staticmethod 
+    def _load_frame_as_array_helper(frame_pathname, frame_type):
         if(frame_type == "tiff8"):
             im = Image.open(frame_pathname) 
             return np.array(im)
@@ -201,6 +223,7 @@ class ImageWatchdog():
             return np.array(im)
         else:
             raise ValueError("Frame type not supported.")
+
 
 
 
