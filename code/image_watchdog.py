@@ -8,6 +8,8 @@ import numpy as np
 from astropy.io import fits
 from utility_functions import load_breadboard_client, get_newest_run_dict
 
+from PIL import Image
+
 
 DATETIME_FORMAT_STRING = "%m-%d-%y;%H-%M-%S"
 
@@ -86,11 +88,15 @@ class ImageWatchdog():
             image = image_dict[image_name] 
             image_array_stack = np.stack(*image, axis = -1)
             timestamp_string = timestamp.strftime(DATETIME_FORMAT_STRING)
-            image_full_name = timestamp_string + "_" + image_name
-            image_save_path = os.path.join(self.no_id_folder_path, image_full_name + ".fits")
+            timestamped_image_name = timestamp_string + "_" + image_name
+            image_save_path = os.path.join(self.no_id_folder_path, timestamped_image_name + ".fits")
             ImageWatchdog._save_as_fits(image_save_path, image_array_stack) 
 
 
+    @staticmethod
+    def _save_as_fits(image_save_path, image_array_stack):
+        hdu = fits.PrimaryHDU(image_array_stack)
+        hdu.writeto(image_save_path) 
 
     #TODO Right now, an inelegant kludge is responsible for making sure a given frame isn't checked every time the code loops.
     #Fix this.
@@ -188,9 +194,11 @@ class ImageWatchdog():
     def _load_frame_as_array(frame_pathname, frame_type):
         SUPPORTED_FRAMETYPES_STRING = " tiff8 tiff16" 
         if(frame_type == "tiff8"):
-            pass 
+            im = Image.open(frame_pathname) 
+            return np.array(im)
         elif(frame_type == "tiff16"):
-            pass
+            im = Image.open(frame_pathname) 
+            return np.array(im)
         else:
             raise ValueError("Frame type not supported.")
 
