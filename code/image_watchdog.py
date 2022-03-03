@@ -8,11 +8,11 @@ import numpy as np
 from astropy.io import fits
 from PIL import Image, UnidentifiedImageError
 
-from satyendra.code.utility_functions import load_breadboard_client, get_newest_run_dict
+from satyendra.code import utility_functions
 
 
 
-DATETIME_FORMAT_STRING = "%m-%d-%y %H:%M:%S"
+DATETIME_FORMAT_STRING = "%m-%d-%yT%H:%M:%S"
 
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
@@ -63,7 +63,7 @@ class ImageWatchdog():
                 os.mkdir(self.lost_frame_path) 
         self.lost_frame_patience = lost_frame_patience 
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
-        self.bc = load_breadboard_client()
+        self.bc = utility_functions.load_breadboard_client()
         if(not frame_file_type in SUPPORTED_FRAME_FILETYPES):
             warning_string = "Specified frame filetype is not supported. Supported filetypes include:"
             for file_type in SUPPORTED_FRAME_FILETYPES:
@@ -112,7 +112,7 @@ class ImageWatchdog():
     
     Remark: Only matches frames if their names contain one of the strings imagename_framename
     corresponding to an entry in self.image_specification_dict."""
-    def aggregate_image_dict(self, sleep_time = 0.1):
+    def save_frames_into_images(self, sleep_time = 0.1):
         frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
         if(len(frame_filenames_list) > 0):
             #start a timer
@@ -151,6 +151,32 @@ class ImageWatchdog():
                 return False
         else:
             return False
+
+
+    def label_image_with_run_id(self):
+        image_filename_list = self._get_frame_filenames_in_no_id_folder() 
+        cleaned_image_filename_list = [filename for filename in image_filename_list if (not 'unmatchable' in filename)] 
+        target_image_filename = cleaned_image_filename_list[0] 
+        target_datetime_string = target_image_filename.split('_', 1)[0] 
+        same_timestamp_image_filename_list = [filename for filename in image_filename_list if (target_datetime_string in filename)]
+        target_datetime = datetime.strptime(target_datetime_string, DATETIME_FORMAT_STRING)
+        try:
+            run_id = utility_functions.get_run_id_from_datetime(self.bc, target_datetime)
+        except RuntimeError as e:
+            for original_image_filename in same_timestamp_image_filename_list:
+                original_image_pathname = os.path.join(self.no_id_folder_path, original_image_filename)
+                unmatchable_image_filename = 'unmatchable_' + original_image_filename 
+                unmatchable_image_pathname = os.path.join(self.no_id_folder_path, unmatchable_image_filename)
+                os.rename(original_image_pathname, unmatchable_image_pathname)
+        else:
+            for original_image_filename in same_timestamp_image_filename_list:
+                original_image_pathname = os.path.join(self.no_id_folder_path, original_image_filename)
+                labeled_image_filename = str(run_id) + '_' + original_image_filename 
+                labeled_image_pathname = os.path.join(self.savefolder_path, labeled_image_filename)
+                os.rename(original_image_pathname, labeled_image_pathname)
+
+
+
                 
 
     def _flush_watchfolder(self):
@@ -178,8 +204,16 @@ class ImageWatchdog():
             file_extension_string = ".tiff"
         else:
             file_extension_string = ""
-        frames_list = [os.path.join(self.watchfolder_path, f) for f in os.listdir(self.watchfolder_path) 
+        frames_list = [f for f in os.listdir(self.watchfolder_path) 
                         if (os.path.isfile(os.path.join(self.watchfolder_path, f)) 
+                        and file_extension_string in f)]
+        return frames_list
+
+
+    def _get_frame_filenames_in_no_id_folder(self):
+        file_extension_string = ".fits"
+        frames_list = [f for f in os.listdir(self.no_id_folder_path) 
+                        if (os.path.isfile(os.path.join(self.no_id_folder_path, f)) 
                         and file_extension_string in f)]
         return frames_list
 
