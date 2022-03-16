@@ -1,18 +1,16 @@
-import sys 
+import datetime 
 import os 
 import time 
-import datetime 
-
-import numpy as np
 
 from astropy.io import fits
+import numpy as np
 from PIL import Image, UnidentifiedImageError
 
 from satyendra.code import utility_functions
 
 
 
-DATETIME_FORMAT_STRING = "%m-%d-%yT%H:%M:%S"
+DATETIME_FORMAT_STRING = "%m-%d-%yT%H-%M-%S"
 
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
@@ -101,6 +99,8 @@ class ImageWatchdog():
 
     #TODO Right now, an inelegant kludge is responsible for making sure a given frame isn't checked every time the code loops.
     #Fix this.
+    #BUG: Can throw a zsh bus error (seg fault) in terminal when images are being saved to the watchfolder at ultra-speed.
+    #To replicate, just write a program which saves images as fast as it can. 
     """Aggregates a run worth of images from the watchfolder.
     
     Checks the watchfolder to see if there are any frames. If there are, attempts to 
@@ -153,31 +153,53 @@ class ImageWatchdog():
             return False
 
 
-    def label_image_with_run_id(self):
+    #TODO: Implement method for mass-matching in case of use case. Otherwise, takes ~5s to run
+    """
+    Function for matching datetimes to unlabeled runs in the watchfolder.
+
+    Function which scans the savefolder for images which have yet to be labeled with an ID, 
+    then tries to match a single set of them if unlabeled.
+    
+    Parameters:
+    
+    labelling_waiting_period: Method will not attempt to match run IDs for any images 
+    whose datetimes are less than this many seconds before the present. Workaround for 
+    delays in runs reaching the server.
+    
+    mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id."""
+    def label_image_with_run_id(self, labelling_waiting_period = 5, mismatch_tolerance = 5):
         image_filename_list = self._get_frame_filenames_in_no_id_folder() 
+        no_failures_bool = True
         cleaned_image_filename_list = [filename for filename in image_filename_list if (not 'unmatchable' in filename)] 
-        target_image_filename = cleaned_image_filename_list[0] 
-        target_datetime_string = target_image_filename.split('_', 1)[0] 
+        for checked_image_filename in cleaned_image_filename_list: 
+            checked_datetime_string = checked_image_filename.split('_', 1)[0] 
+            checked_datetime = datetime.datetime.strptime(checked_datetime_string, DATETIME_FORMAT_STRING)
+            checked_current_timedelta = datetime.datetime.now() - checked_datetime
+            if(checked_current_timedelta.total_seconds() > labelling_waiting_period):
+                target_datetime_string = checked_datetime_string
+                target_datetime = checked_datetime
+                break 
+        else:
+            return False 
         same_timestamp_image_filename_list = [filename for filename in image_filename_list if (target_datetime_string in filename)]
-        target_datetime = datetime.strptime(target_datetime_string, DATETIME_FORMAT_STRING)
         try:
-            run_id = utility_functions.get_run_id_from_datetime(self.bc, target_datetime)
+            run_id = utility_functions.get_run_id_from_datetime(self.bc, target_datetime,
+                                                                 allowed_seconds_before = mismatch_tolerance, allowed_seconds_after = mismatch_tolerance)
         except RuntimeError as e:
-            for original_image_filename in same_timestamp_image_filename_list:
-                original_image_pathname = os.path.join(self.no_id_folder_path, original_image_filename)
-                unmatchable_image_filename = 'unmatchable_' + original_image_filename 
-                unmatchable_image_pathname = os.path.join(self.no_id_folder_path, unmatchable_image_filename)
-                os.rename(original_image_pathname, unmatchable_image_pathname)
+                no_failures_bool = False
+                for original_image_filename in same_timestamp_image_filename_list:
+                    original_image_pathname = os.path.join(self.no_id_folder_path, original_image_filename)
+                    unmatchable_image_filename = 'unmatchable_' + original_image_filename 
+                    unmatchable_image_pathname = os.path.join(self.no_id_folder_path, unmatchable_image_filename)
+                    os.rename(original_image_pathname, unmatchable_image_pathname)
         else:
             for original_image_filename in same_timestamp_image_filename_list:
                 original_image_pathname = os.path.join(self.no_id_folder_path, original_image_filename)
                 labeled_image_filename = str(run_id) + '_' + original_image_filename 
                 labeled_image_pathname = os.path.join(self.savefolder_path, labeled_image_filename)
                 os.rename(original_image_pathname, labeled_image_pathname)
+        return no_failures_bool
 
-
-
-                
 
     def _flush_watchfolder(self):
         timestamp = datetime.datetime.today() 
