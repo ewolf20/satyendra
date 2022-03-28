@@ -112,21 +112,113 @@ class ImageWatchdog():
     
     Remark: Only matches frames if their names contain one of the strings imagename_framename
     corresponding to an entry in self.image_specification_dict."""
-    def save_frames_into_images(self, sleep_time = 0.1):
+
+    def save_labeled_frames_into_images(self, sleep_time = 0.1):
+        frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
+        if(len(frame_filenames_list) > 0):
+            filename_match_list = [] 
+            for expected_image_name in self.image_specification_dict:
+                for expected_frame_name in self.image_specification_dict[expected_image_name]:
+                    filename_match_list.append(expected_image_name + "_" + expected_frame_name) 
+            try:
+                found_frames_list = self._scan_watchfolder_for_frames(filename_match_list)
+            except RuntimeError:
+                return False 
+            else:
+                image_dict = self._group_labeled_frames_into_image_dict(found_frames_list)
+                most_recent_frame_datetime = self._get_most_recent_frame_datetime(found_frames_list) 
+                self._save_run_in_no_id_folder(image_dict, most_recent_frame_datetime)
+                self._flush_watchfolder(failed = False)
+                return True 
+        else:
+            return False
+
+    """
+    Helper function for looking for frames in the watchfolder which match a certain image name.
+
+    Scans the watchfolder for frames which contain a substring from an array of possible names. If it finds a number of frames 
+    equal to the number it expects for a single run within the time given by self.lost_frame_patience, it returns them in an array.
+
+    Parameters:
+
+    match_array: An array of substrings; a frame is only recognized if its name contains one of these strings. 
+    """
+    def _scan_watchfolder_for_frames(self, match_array = None, sleep_time = 0.1):
+        start_time = time.time()
+        found_frame_filenames_list = []
+        counter = 0
+        while(time.time() - start_time < self.lost_frame_patience and counter < self.total_frames_per_run):
+            frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
+            for frame_filename in frame_filenames_list:
+                if(frame_filename in found_frame_filenames_list):
+                        continue
+                for match_string in match_array:
+                    if match_string in frame_filename:
+                        found_frame_filenames_list.append(frame_filename)
+                        break
+            time.sleep(sleep_time)
+            if(len(found_frame_filenames_list) == self.total_frames_per_run):
+                return found_frame_filenames_list
+        self._flush_watchfolder(failed = True)
+        raise RuntimeError("Unable to find all of the frames for the run.")
+
+
+    def _group_labeled_frames_into_image_dict(self, frame_filename_list):
+        image_dict = {} 
+        for expected_image_name in self.image_specification_dict:
+            image_dict[expected_image_name] = []
+            for expected_frame_name in self.image_specification_dict[expected_image_name]:
+                for frame_filename in frame_filename_list:
+                    if(expected_image_name + "_" + expected_frame_name in frame_filename):
+                        frame_pathname = os.path.join(self.watchfolder_path, frame_filename)
+                        frame_array = ImageWatchdog._load_frame_as_array(frame_pathname, self.frame_file_type)
+                        image_dict[expected_image_name].append(frame_array)
+                        break 
+                else:
+                    raise RuntimeError("One of the frames does not have a filename matching the image specification dict.")
+        return image_dict
+
+
+
+    def _get_most_recent_frame_datetime(self, frame_filename_list):
+        most_recent_datetime = datetime.datetime.fromtimestamp(0) 
+        for frame_filename in frame_filename_list:
+            frame_pathname = os.path.join(self.watchfolder_path, frame_filename)
+            frame_timestamp = os.path.getmtime(frame_pathname)
+            frame_datetime = datetime.datetime.fromtimestamp(frame_timestamp) 
+            if(frame_datetime > most_recent_datetime):
+                most_recent_datetime = frame_datetime 
+        return most_recent_datetime
+
+    """
+    Method for saving unlabeled but sequential frames into images.
+    
+    Scans the watchfolder for frames to aggregate into images as in save_labeled_frames_into_images, but 
+    instead of relying on them being labeled, assumes that they are always received in a given order.
+    
+    order_list: An list [imagename_framename, imagename_framename2] which specifies the order in which entries {'imagename':[framename]} of the 
+    image specification dict appear in the watchfolder. If not provided, the default is a depth-first
+    enumeration [imagename1_framename1, imagename1_framename2, ... imagename2_framename1]."""
+
+    def save_sequential_frames_into_images(self, order_list = None, sleep_time = 0.1):
         frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
         if(len(frame_filenames_list) > 0):
             #start a timer
             start_time = time.time()
-            #initialize the image dict
+            #initialize the image dict and, if not specified, the order list
             image_dict = {}
             for expected_image_name in self.image_specification_dict:
                 image_dict[expected_image_name] = []
                 for expected_frame_name in self.image_specification_dict[expected_image_name]:
                     image_dict[expected_image_name].append(None)
+            if not order_list:
+                order_list = [] 
+                for image_name in self.image_specification_dict:
+                    for frame_name in self.image_specification_dict[image_name]:
+                        order_list.append(image_name + "_" + frame_name) 
             #Create a list to store the frame pathnames we've already checked
-            #TODO Make more elegant!
             examined_frame_filenames_list = []
-            #Loop while waiting for new frames
+            most_recent_frame_datetime = datetime.datetime.fromtimestamp(0)
             counter = 0
             while(time.time() - start_time < self.lost_frame_patience and counter < self.total_frames_per_run):
                 frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
@@ -141,9 +233,14 @@ class ImageWatchdog():
                                 image_dict[expected_image_name][index] = frame_array
                                 counter += 1
                     examined_frame_filenames_list.append(frame_filename)
+                    frame_pathname = os.path.join(self.watchfolder_path, frame_filename)
+                    current_frame_timestamp = os.path.getmtime(frame_pathname)
+                    current_frame_datetime = datetime.datetime.fromtimestamp(current_frame_timestamp) 
+                    if(current_frame_datetime > most_recent_frame_datetime):
+                        most_recent_frame_datetime = current_frame_datetime
                 time.sleep(sleep_time)
             if(counter == self.total_frames_per_run):
-                self._save_run_in_no_id_folder(image_dict, datetime.datetime.today())
+                self._save_run_in_no_id_folder(image_dict, most_recent_frame_datetime)
                 self._flush_watchfolder() 
                 return True 
             else:
@@ -153,7 +250,7 @@ class ImageWatchdog():
             return False
 
 
-    #TODO: Implement method for mass-matching in case of use case. Otherwise, takes ~5s to run
+    #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
     """
     Function for matching datetimes to unlabeled runs in the watchfolder.
 
@@ -201,25 +298,26 @@ class ImageWatchdog():
         return no_failures_bool
 
 
-    def _flush_watchfolder(self):
+    def _flush_watchfolder(self, failed = False):
         timestamp = datetime.datetime.today() 
         timestamp_string = timestamp.strftime(DATETIME_FORMAT_STRING)
         frame_filenames_list = self._get_frame_filenames_in_watchfolder() 
         for frame_filename in frame_filenames_list:
             frame_pathname = os.path.join(self.watchfolder_path, frame_filename)
-            if(self.delete_lost_frames):
-                os.remove(frame_pathname)
-            else:
+            if(failed and not self.delete_lost_frames):
                 timestamped_frame_filename = timestamp_string + "_" + frame_filename
                 lost_frames_pathname = os.path.join(self.lost_frame_path, timestamped_frame_filename) 
-                os.rename(frame_pathname, lost_frames_pathname)
+                os.rename(frame_pathname, lost_frames_pathname)            
+            else:
+                os.remove(frame_pathname) 
+
 
 
     """
     Returns a list of the current frames in the watchfolder.
 
     Remark: Though this function checks that the frame exists by creating a full path to it, 
-    the names returned are just file names, 
+    the names returned are just file names.
     """
     def _get_frame_filenames_in_watchfolder(self):
         if(self.frame_file_type == "tiff8" or self.frame_file_type == "tiff16"):
@@ -279,6 +377,10 @@ class ImageWatchdog():
             return np.array(im)
         else:
             raise ValueError("Frame type not supported.")
+
+
+
+
 
 
 
