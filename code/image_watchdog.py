@@ -10,7 +10,7 @@ from satyendra.code import utility_functions
 
 
 
-DATETIME_FORMAT_STRING = "%m-%d-%yT%H-%M-%S"
+DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
 
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
@@ -379,17 +379,55 @@ class ImageWatchdog():
             raise ValueError("Frame type not supported.")
 
 
-
-
-
-
-
-
-
-
+    """
+    Function for bringing legacy filenames into conformance with the standard established by watchdog going forward.
+    Given a folder, runs through a list of legacy filename types and recasts the filenames in the folder into the standard
+    runID_datetimestring_imagetype format established in satyendra.
     
-
-
-
-
-        
+    The method assumes that the runs are in either the runID_datetimestring_imagename format, or that they are in the 
+    abridged datetimestring_imagename format, from which the run ids can be extracted by querying breadboard."""
+    @staticmethod 
+    def clean_filenames(folder):
+        filename_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%y_%H_%M_%S"]
+        filenames_list = os.listdir(folder)
+        for filename_format in filename_formats:
+            filename_run_ids_list = []
+            filename_datetime_strings_list = [] 
+            filename_image_type_strings_list = []
+            run_ids_absent = False 
+            try:
+                for filename in filenames_list:
+                    file_path = os.path.join(folder, filename)
+                    if('_' in filename_format):
+                        datetime_string_split_length = len(filename_format.split('_')) 
+                        split_filename_array = filename.split('_') 
+                        if(len(split_filename_array == datetime_string_split_length + 2)):
+                            run_id_string = split_filename_array[0] 
+                            image_type_string = split_filename_array[-1]
+                            datetime_string = '_'.join(split_filename_array[1:-1]) 
+                        elif(len(split_filename_array == datetime_string_split_length + 1)):
+                            run_id_string = ''
+                            image_type_string = split_filename_array[-1] 
+                            datetime_string = '_'.join(split_filename_array[:-1])
+                        else:
+                            raise ValueError("Unable to parse the filename")
+                    else:
+                        pass
+                        split_filename_array = filename.split('_')
+                        if(len(split_filename_array) == 3):
+                            run_id_string = split_filename_array[0] 
+                            datetime_string = split_filename_array[1] 
+                            image_type_string = split_filename_array[2] 
+                        elif(len(split_filename_array) == 2):
+                            run_ids_absent = True
+                            run_id_string = ''
+                            datetime_string = split_filename_array[0] 
+                            image_type_string = split_filename_array[1]
+                        else:
+                            raise ValueError("Unable to parse the filename.")
+                    filename_run_ids_list.append(run_id_string)
+                    filename_datetime_strings_list.append(datetime_string)
+                    filename_image_type_strings_list.append(image_type_string)
+                    
+            except ValueError:
+                continue
