@@ -76,6 +76,13 @@ def get_run_id_from_datetime(bc, target_datetime, allowed_seconds_before = 5, al
         run_dict = runs_list[0] 
         return run_dict['id']
 
+def get_run_ids_from_datetime_range(bc, start_datetime, end_datetime, allowed_seconds_deviation = 5):
+    datetime_range_start = start_datetime - datetime.timedelta(seconds = allowed_seconds_deviation)
+    datetime_range_end = end_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
+    response = get_runs(bc, (datetime_range_start, datetime_range_end))
+    response_dict_list = response.json().get('results') 
+    runs_list = [d['id'] for d in response_dict_list]
+    return runs_list
 
 
 """
