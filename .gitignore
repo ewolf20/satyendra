@@ -137,9 +137,10 @@ dmypy.json
 
 *local.json
 
-#Test code 
-*test*
-
 #Mac-specific 
 .DS_Store
+
+#Temporary files
+*temp*
+*Temp*
 

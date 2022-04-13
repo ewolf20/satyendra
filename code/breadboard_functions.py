@@ -81,8 +81,7 @@ def get_run_id_from_datetime(bc, target_datetime, allowed_seconds_before = 5, al
 def get_run_ids_from_datetime_range(bc, start_datetime, end_datetime, allowed_seconds_deviation = 5):
     datetime_range_start = start_datetime - datetime.timedelta(seconds = allowed_seconds_deviation)
     datetime_range_end = end_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-    response = get_runs(bc, (datetime_range_start, datetime_range_end))
-    response_dict_list = response.json().get('results') 
+    response_dict_list = _get_runs_dict_from_datetime_range(bc, (datetime_range_start, datetime_range_end))
     runs_list = [d['id'] for d in response_dict_list]
     return runs_list
 
@@ -94,19 +93,20 @@ Labels a list of datetimes with corresponding run_ids.
 Given input [datetime1, datetime2, ...], returns a list of tuples [(datetime1, runID1), (datetime2, runID2), ...].
 Note that the datetimes are datetime objects, and the runID is returned as an int.
 
-If contiguous = True, speeds up by sorting datetimes rather than matching brute force. With this flag, 
-function will break if either a) run ids are not returned by get_run_ids_from_datetime_range monotonically, or b) the 
-given datetime list has ''holes''. 
+If well_formed = True, speeds up by sorting datetimes rather than matching brute force. With this flag, 
+function will break if either a) run ids are not returned by get_run_ids_from_datetime_range monotonically, b) the given datetime list 
+has holes, i.e. there are run datetimes which occur between the max and min of the list but are not in the list, or c) there are two 
+unique datetimes in the list which are repeated a different number of times. 
 """
-def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, contiguous = True):
+def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, well_formed = False):
     min_datetime = min(datetime_list) 
     max_datetime = max(datetime_list)
-    if(contiguous):
+    if(well_formed):
         run_ids_descending_order = get_run_ids_from_datetime_range(bc, min_datetime, max_datetime, allowed_seconds_deviation= allowed_seconds_deviation)
         if(len(datetime_list) % len(run_ids_descending_order) != 0):
             raise RuntimeError("Did not receive the correct number of run ids for the given datetime range.")
         datetimes_per_run_id = len(datetime_list) // len(run_ids_descending_order) 
-        tagged_datetimes_list = list(enumerate(datetimes_per_run_id)) 
+        tagged_datetimes_list = list(enumerate(datetime_list)) 
         descending_tagged_datetimes_list = sorted(tagged_datetimes_list, key = lambda f: f[1], reverse = True)
         run_id_labeled_tagged_datetimes_list = [] 
         for i, tag_datetime_tuple in enumerate(descending_tagged_datetimes_list):
@@ -118,12 +118,12 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
     else:
         lower_limit_datetime = min_datetime - datetime.timedelta(seconds = allowed_seconds_deviation) 
         upper_limit_datetime = max_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-        resp = get_runs(bc, (lower_limit_datetime, upper_limit_datetime))
-        resp_dict_list = resp.json().get('results')
+        resp_dict_list = _get_runs_dict_from_datetime_range(bc, (lower_limit_datetime, upper_limit_datetime))
         original_order_datetime_run_id_list = []
         for current_datetime in datetime_list:
             for run_dict in resp_dict_list:
                 run_datetime = datetime.datetime.strptime(run_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
+                print(run_datetime)
                 time_difference = run_datetime - current_datetime
                 if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
                     run_id = run_dict['id']
@@ -134,7 +134,25 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
         return original_order_datetime_run_id_list
 
 
-
+#TODO: Should really implement this at the level of breadboard python client, probably in the mixins, though then I'll have to get push access.
+#TODO: Need to remove the hard-coded limit and read it from the http response somehow...
+def _get_runs_dict_from_datetime_range(bc, datetime_range, page = '', **kwargs):
+    LIMIT = 200
+    initial_response = get_runs(bc, datetime_range, page = page, **kwargs)
+    initial_response_json = initial_response.json() 
+    total_results_count = initial_response_json.get('count')
+    results_dict_list = []
+    results_dict_list.extend(initial_response_json.get('results')) 
+    next = initial_response_json.get('next') 
+    offset = 0 
+    offset += LIMIT
+    while next:
+        response = get_runs(bc, datetime_range, page = page, offset = offset, **kwargs)
+        response_json = response.json() 
+        results_dict_list.extend(response_json.get('results')) 
+        next = response_json.get('next') 
+        offset += LIMIT
+    return results_dict_list
 
 
 """
@@ -159,11 +177,12 @@ searches by 'runtime'.
 
 """
 
-def get_runs(bc, datetime_range, page = ''):
+def get_runs(bc, datetime_range, page = '', **kwargs):
     payload = {
         'lab':bc.lab_name,
         'start_datetime': datetime_range[0],
-        'end_datetime': datetime_range[1]
+        'end_datetime': datetime_range[1],
+        **kwargs
     }
     response = _query_breadboard_with_retries(bc, 'get', '/runs/' + page, params = payload)
     return response

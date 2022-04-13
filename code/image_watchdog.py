@@ -7,7 +7,7 @@ from astropy.io import fits
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from satyendra.code import utility_functions
+from satyendra.code import breadboard_functions
 
 
 
@@ -63,7 +63,7 @@ class ImageWatchdog():
                 os.mkdir(self.lost_frame_path) 
         self.lost_frame_patience = lost_frame_patience 
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
-        self.bc = utility_functions.load_breadboard_client()
+        self.bc = breadboard_functions.load_breadboard_client()
         if(not frame_file_type in SUPPORTED_FRAME_FILETYPES):
             warning_string = "Specified frame filetype is not supported. Supported filetypes include:"
             for file_type in SUPPORTED_FRAME_FILETYPES:
@@ -282,7 +282,7 @@ class ImageWatchdog():
             return False 
         same_timestamp_image_filename_list = [filename for filename in image_filename_list if (target_datetime_string in filename)]
         try:
-            run_id = utility_functions.get_run_id_from_datetime(self.bc, target_datetime,
+            run_id = breadboard_functions.get_run_id_from_datetime(self.bc, target_datetime,
                                                                  allowed_seconds_before = mismatch_tolerance, allowed_seconds_after = mismatch_tolerance)
         except RuntimeError as e:
                 no_failures_bool = False
@@ -457,6 +457,7 @@ class ImageWatchdog():
                 if run_ids_absent:
                     descending_datetime_image_type_and_filename_tuple_list = sorted(zip(filename_datetimes_list, filename_image_type_strings_list, filenames_list),
                                                                             key = lambda f: f[0], reverse = True)
+                    #GET RUN IDS
                     for run_id, datetime_image_type_and_filename_tuple in zip(run_ids_descending_order, descending_datetime_image_type_and_filename_tuple_list):
                         filename_datetime, image_type_string, old_filename = datetime_image_type_and_filename_tuple
                         new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
