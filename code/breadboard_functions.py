@@ -123,7 +123,6 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
         for current_datetime in datetime_list:
             for run_dict in resp_dict_list:
                 run_datetime = datetime.datetime.strptime(run_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
-                print(run_datetime)
                 time_difference = run_datetime - current_datetime
                 if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
                     run_id = run_dict['id']
@@ -137,6 +136,7 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
 #TODO: Should really implement this at the level of breadboard python client, probably in the mixins, though then I'll have to get push access.
 #TODO: Need to remove the hard-coded limit and read it from the http response somehow...
 def _get_runs_dict_from_datetime_range(bc, datetime_range, page = '', **kwargs):
+    #The page size of breadboard's http responses, hard-coded in
     LIMIT = 200
     initial_response = get_runs(bc, datetime_range, page = page, **kwargs)
     initial_response_json = initial_response.json() 

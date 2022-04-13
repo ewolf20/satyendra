@@ -23,8 +23,9 @@ class TestImageWatchdog:
 
     @staticmethod 
     def test_clean_filenames():
-        # MODERN_FILENAMES_SHA_HEX_STRING = '76a9caa2a6aa17c7bfdecab69865093af2e25b732aeeebd1032ecb363841da13'
-        # OLD_FILENAMES_SHA_HEX_STRING = ''
+        MODERN_FILENAMES_SHA_HEX_STRING = '51c0c0aca7d807d54bdd3c290d31a3113be25cff228f5c5c0af3fe15646b9516'
+        SIDE_FILENAMES_SHA_HEX_STRING = '717e497d9a50973f06aa05ded3b0f9e023bb3976c3f73dbfe993e4480cf212ab'
+        TOP_FILENAMES_SHA_HEX_STRING = '20667b444a200cfa8888a645ae8e44e498dd4e3bbfb0eb62fcf9cd07781250f7'
         try:
             shutil.copytree('resources/Old_Top_Format_Filenames', 'resources/Top_Temp')
             shutil.copytree('resources/Old_Side_Format_Filenames', 'resources/Side_Temp')
@@ -32,16 +33,13 @@ class TestImageWatchdog:
             ImageWatchdog.clean_filenames('resources/Top_Temp')
             ImageWatchdog.clean_filenames('resources/Side_Temp', image_type_default = 'Side')
             ImageWatchdog.clean_filenames('resources/Modern_Temp')
-            print(TestImageWatchdog.get_checksum_from_folder_filenames('resources/Top_Temp'))
-            print(TestImageWatchdog.get_checksum_from_folder_filenames('resources/Side_Temp'))
-            print(TestImageWatchdog.get_checksum_from_folder_filenames('resources/Modern_Temp'))
-            print(TestImageWatchdog.get_checksum_from_folder_filenames('resources/Modern_Format_Filenames'))
-            assert True
+            assert TestImageWatchdog.get_checksum_from_folder_filenames('resources/Top_Temp') == TOP_FILENAMES_SHA_HEX_STRING
+            assert TestImageWatchdog.get_checksum_from_folder_filenames('resources/Side_Temp') == SIDE_FILENAMES_SHA_HEX_STRING
+            assert TestImageWatchdog.get_checksum_from_folder_filenames('resources/Modern_Temp') == MODERN_FILENAMES_SHA_HEX_STRING
         finally:
-            pass
-            # shutil.rmtree('resources/Top_Temp')
-            # shutil.rmtree('resources/Side_Temp')
-            # shutil.rmtree('resources/Modern_Temp')
+            shutil.rmtree('resources/Top_Temp')
+            shutil.rmtree('resources/Side_Temp')
+            shutil.rmtree('resources/Modern_Temp')
 
 
 

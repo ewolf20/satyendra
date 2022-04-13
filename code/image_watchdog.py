@@ -388,13 +388,12 @@ class ImageWatchdog():
     
     The method assumes that the runs are in either the runID_datetimestring_imagename format, the abridged datetimestring_imagename format, 
     or the maximally abridged datetimestring format (for which the imagename can still be deduced, since we only saved side images this way).
-    Note that the method will fail if two different datetime string formats are mixed. """
+    Note that the method _will fail_ if two different datetime string formats are mixed."""
     @staticmethod 
     def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None):
         datetime_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%Y_%H_%M_%S"]
         filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f]
         for datetime_format in datetime_formats:
-            print("Trying format: " + datetime_format)
             filename_run_id_strings_list = []
             filename_datetimes_list = [] 
             filename_image_type_strings_list = []
@@ -451,15 +450,15 @@ class ImageWatchdog():
                     filename_datetimes_list.append(filename_datetime)
                     filename_image_type_strings_list.append(image_type_string)
             except ValueError as e:
-                print(e)
                 continue
             else:
                 if run_ids_absent:
-                    descending_datetime_image_type_and_filename_tuple_list = sorted(zip(filename_datetimes_list, filename_image_type_strings_list, filenames_list),
-                                                                            key = lambda f: f[0], reverse = True)
                     #GET RUN IDS
-                    for run_id, datetime_image_type_and_filename_tuple in zip(run_ids_descending_order, descending_datetime_image_type_and_filename_tuple_list):
-                        filename_datetime, image_type_string, old_filename = datetime_image_type_and_filename_tuple
+                    bc = breadboard_functions.load_breadboard_client()
+                    datetime_and_run_id_tuple_list = breadboard_functions.label_datetime_list_with_run_ids(bc, filename_datetimes_list)
+                    filename_run_ids = [f[1] for f in datetime_and_run_id_tuple_list]
+                    for old_filename, run_id, filename_datetime, image_type_string in zip(filenames_list, filename_run_ids, filename_datetimes_list, 
+                                                                        filename_image_type_strings_list):
                         new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
                         old_filename_with_extension = old_filename + image_extension_string
                         old_pathname = os.path.join(folder_path, old_filename_with_extension)
