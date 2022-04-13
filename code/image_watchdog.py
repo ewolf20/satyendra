@@ -1,4 +1,5 @@
-import datetime 
+import datetime
+from email.mime import image 
 import os 
 import time 
 
@@ -11,6 +12,7 @@ from satyendra.code import utility_functions
 
 
 DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
+FILENAME_DELIMITER_CHAR = '_'
 
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
@@ -384,44 +386,45 @@ class ImageWatchdog():
     Given a folder, runs through a list of legacy filename types and recasts the filenames in the folder into the standard
     runID_datetimestring_imagetype format established in satyendra.
     
-    The method assumes that the runs are in either the runID_datetimestring_imagename format, or that they are in the 
-    abridged datetimestring_imagename format, from which the run ids can be extracted by querying breadboard."""
+    The method assumes that the runs are in either the runID_datetimestring_imagename format, the abridged datetimestring_imagename format, 
+    or the maximally abridged datetimestring format (for which the imagename can still be deduced, since we only saved side images this way).
+    Note that the method will fail if two different datetime string formats are mixed. """
     @staticmethod 
     def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None):
-        bc = utility_functions.load_breadboard_client()
-        datetime_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%y_%H_%M_%S"]
-        filenames_list = [f for f in os.listdir(folder_path) if image_extension_string in f]
+        datetime_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%Y_%H_%M_%S"]
+        filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f]
         for datetime_format in datetime_formats:
-            filename_run_ids_list = []
+            print("Trying format: " + datetime_format)
+            filename_run_id_strings_list = []
             filename_datetimes_list = [] 
             filename_image_type_strings_list = []
             run_ids_absent = False 
             try:
                 for filename in filenames_list:
-                    file_path = os.path.join(folder_path, filename)
-                    if('_' in datetime_format):
-                        datetime_string_split_length = len(datetime_format.split('_')) 
-                        split_filename_array = filename.split('_') 
-                        if(len(split_filename_array == datetime_string_split_length + 2)):
+                    if(FILENAME_DELIMITER_CHAR in datetime_format):
+                        datetime_string_split_length = len(datetime_format.split(FILENAME_DELIMITER_CHAR)) 
+                        split_filename_array = filename.split(FILENAME_DELIMITER_CHAR) 
+                        if(len(split_filename_array) == datetime_string_split_length + 2):
                             run_id_string = split_filename_array[0]
                             image_type_string = split_filename_array[-1]
-                            datetime_string = '_'.join(split_filename_array[1:-1]) 
-                        elif(len(split_filename_array == datetime_string_split_length + 1)):
+                            datetime_string = FILENAME_DELIMITER_CHAR.join(split_filename_array[1:-1]) 
+                        elif(len(split_filename_array) == datetime_string_split_length + 1):
+                            run_ids_absent = True
                             run_id_string = ''
                             image_type_string = split_filename_array[-1] 
-                            datetime_string = '_'.join(split_filename_array[:-1])
-                        elif len(split_filename_array == datetime_string_split_length):
+                            datetime_string = FILENAME_DELIMITER_CHAR.join(split_filename_array[:-1])
+                        elif len(split_filename_array) == datetime_string_split_length:
                             if image_type_default:
+                                run_ids_absent = True
                                 image_type_string = image_type_default
                                 run_id_string = '' 
-                                datetime_string = '_'.join(split_filename_array[:-1])
+                                datetime_string = FILENAME_DELIMITER_CHAR.join(split_filename_array)
                             else:
                                 raise ValueError("Unable to determine the image type; try specifying it manually.")
                         else:
                             raise ValueError("Unable to parse the filename")
                     else:
-                        pass
-                        split_filename_array = filename.split('_')
+                        split_filename_array = filename.split(FILENAME_DELIMITER_CHAR)
                         if(len(split_filename_array) == 3):
                             run_id_string = split_filename_array[0] 
                             datetime_string = split_filename_array[1] 
@@ -433,40 +436,45 @@ class ImageWatchdog():
                             image_type_string = split_filename_array[1]
                         elif(len(split_filename_array) == 1):
                             if image_type_default:
+                                run_ids_absent = True
                                 image_type_string = image_type_default
                                 run_id_string = '' 
-                                datetime_string = '_'.join(split_filename_array[:-1])
+                                datetime_string = split_filename_array[0]
                             else:
                                 raise ValueError("Unable to determine the image type; try specifying it manually.")
                         else:
                             raise ValueError("Unable to parse the filename.")
-                    filename_run_ids_list.append(int(run_id_string))
-                    datetime = datetime.datetime.strptime(datetime_string, DATETIME_FORMAT_STRING)
-                    filename_datetimes_list.append(datetime)
+                    filename_run_id_strings_list.append(run_id_string)
+                    #Removes a space that exists in some legacy datetimes
+                    datetime_string = datetime_string.replace(' ', '')
+                    filename_datetime = datetime.datetime.strptime(datetime_string, datetime_format)
+                    filename_datetimes_list.append(filename_datetime)
                     filename_image_type_strings_list.append(image_type_string)
             except ValueError as e:
                 print(e)
                 continue
             else:
                 if run_ids_absent:
-                    min_datetime = min(filename_datetimes_list) 
-                    max_datetime = max(filename_datetimes_list) 
-                    run_ids_descending_order = utility_functions.get_run_ids_from_datetime_range(bc, min_datetime, max_datetime)
                     descending_datetime_image_type_and_filename_tuple_list = sorted(zip(filename_datetimes_list, filename_image_type_strings_list, filenames_list),
                                                                             key = lambda f: f[0], reverse = True)
                     for run_id, datetime_image_type_and_filename_tuple in zip(run_ids_descending_order, descending_datetime_image_type_and_filename_tuple_list):
-                        datetime, image_type_string, old_filename = datetime_image_type_and_filename_tuple
-                        new_filename = str(run_id) + '_' +  datetime.strftime(DATETIME_FORMAT_STRING) + '_' + image_type_string + image_extension_string
-                        old_pathname = os.path.join(folder_path, old_filename)
-                        new_pathname = os.path.join(folder_path, new_filename)
+                        filename_datetime, image_type_string, old_filename = datetime_image_type_and_filename_tuple
+                        new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
+                        old_filename_with_extension = old_filename + image_extension_string
+                        old_pathname = os.path.join(folder_path, old_filename_with_extension)
+                        new_pathname = os.path.join(folder_path, new_filename_with_extension)
                         os.rename(old_pathname, new_pathname)
                 else:
-                    for filename, run_id, datetime, image_type_string in zip(filenames_list, filename_run_ids_list, filename_datetimes_list,
+                    for old_filename, run_id_string, filename_datetime, image_type_string in zip(filenames_list, filename_run_id_strings_list, filename_datetimes_list,
                                                                                  filename_image_type_strings_list):
-                        new_filename = str(run_id) + '_' +  datetime.strftime(DATETIME_FORMAT_STRING) + '_' + image_type_string + image_extension_string
-                        old_pathname = os.path.join(folder_path, old_filename)
-                        new_pathname = os.path.join(folder_path, new_filename)
+                        new_filename_with_extension = FILENAME_DELIMITER_CHAR.join((run_id_string,  filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
+                        old_filename_with_extension = old_filename + image_extension_string
+                        old_pathname = os.path.join(folder_path, old_filename_with_extension)
+                        new_pathname = os.path.join(folder_path, new_filename_with_extension)
                         os.rename(old_pathname, new_pathname)
+                return True
+        return False
+
 
 
                         

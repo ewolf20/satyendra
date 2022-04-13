@@ -1,6 +1,8 @@
 import datetime
 import time 
 
+BREADBOARD_DATETIME_FORMAT_STRING = "%Y-%m-%dT%H:%M:%SZ"
+
 def load_breadboard_client():
     import json 
     import sys
@@ -83,6 +85,56 @@ def get_run_ids_from_datetime_range(bc, start_datetime, end_datetime, allowed_se
     response_dict_list = response.json().get('results') 
     runs_list = [d['id'] for d in response_dict_list]
     return runs_list
+
+
+#TODO: Add support for non-contiguous datetime ranges; just a search in the returned run id dictionary.
+"""
+Labels a list of datetimes with corresponding run_ids.
+
+Given input [datetime1, datetime2, ...], returns a list of tuples [(datetime1, runID1), (datetime2, runID2), ...].
+Note that the datetimes are datetime objects, and the runID is returned as an int.
+
+If contiguous = True, speeds up by sorting datetimes rather than matching brute force. With this flag, 
+function will break if either a) run ids are not returned by get_run_ids_from_datetime_range monotonically, or b) the 
+given datetime list has ''holes''. 
+"""
+def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, contiguous = True):
+    min_datetime = min(datetime_list) 
+    max_datetime = max(datetime_list)
+    if(contiguous):
+        run_ids_descending_order = get_run_ids_from_datetime_range(bc, min_datetime, max_datetime, allowed_seconds_deviation= allowed_seconds_deviation)
+        if(len(datetime_list) % len(run_ids_descending_order) != 0):
+            raise RuntimeError("Did not receive the correct number of run ids for the given datetime range.")
+        datetimes_per_run_id = len(datetime_list) // len(run_ids_descending_order) 
+        tagged_datetimes_list = list(enumerate(datetimes_per_run_id)) 
+        descending_tagged_datetimes_list = sorted(tagged_datetimes_list, key = lambda f: f[1], reverse = True)
+        run_id_labeled_tagged_datetimes_list = [] 
+        for i, tag_datetime_tuple in enumerate(descending_tagged_datetimes_list):
+            tag, current_datetime = tag_datetime_tuple 
+            run_id = run_ids_descending_order[i // datetimes_per_run_id]
+            run_id_labeled_tagged_datetimes_list.append((tag, (current_datetime, run_id)))
+        original_order_datetime_run_id_list = [f[1] for f in sorted(run_id_labeled_tagged_datetimes_list, key = lambda f: f[0])]
+        return original_order_datetime_run_id_list
+    else:
+        lower_limit_datetime = min_datetime - datetime.timedelta(seconds = allowed_seconds_deviation) 
+        upper_limit_datetime = max_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
+        resp = get_runs(bc, (lower_limit_datetime, upper_limit_datetime))
+        resp_dict_list = resp.json().get('results')
+        original_order_datetime_run_id_list = []
+        for current_datetime in datetime_list:
+            for run_dict in resp_dict_list:
+                run_datetime = datetime.datetime.strptime(run_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
+                time_difference = run_datetime - current_datetime
+                if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
+                    run_id = run_dict['id']
+                    original_order_datetime_run_id_list.append((current_datetime, run_id))
+                    break
+            else:
+                raise RuntimeError("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING))
+        return original_order_datetime_run_id_list
+
+
+
 
 
 """
