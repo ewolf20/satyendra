@@ -3,6 +3,7 @@ import json
 import hashlib
 import os
 import sys
+from tabnanny import check
 
 path_to_file = os.path.dirname(os.path.abspath(__file__))
 path_to_satyendra = path_to_file + "/../../"
@@ -94,7 +95,7 @@ def test_get_run_parameter_dicts_from_ids():
     RUN_IDS_LIST = [805383, 805384, 805734]
     START_DATETIME = datetime.datetime(2022, 4, 6, 9, 56, 19) 
     END_DATETIME = datetime.datetime(2022, 4, 6, 15, 48, 46)
-    VERBOSE_SHA_CHECKSUM = 'da3b9b4d65445c212b4baa510867a7a2fc62cbf3553726f7836688d945d3bb75'
+    VERBOSE_SHA_CHECKSUM = 'b26a4a14c5e43c48856bda7f89fb973fa7ac126a37dd674eef5d7d5e2e210d3d'
     SHA_CHECKSUM = '270f085a08e6713c06a5eaad679cf8fa7f28f8ec61431c8d637b5be58c871457'
     verbose_dicts_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, RUN_IDS_LIST, verbose = True) 
     dicts_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, RUN_IDS_LIST, verbose = False) 
@@ -108,6 +109,17 @@ def test_get_run_parameter_dicts_from_ids():
     assert check_sha_hash(dicts_specify_times_bytes, SHA_CHECKSUM)
 
 
+def test_get_run_parameter_dict_from_id():
+    bc = breadboard_functions.load_breadboard_client()
+    RUN_ID = 805383
+    VERBOSE_SHA_CHECKSUM = 'c31f9362e4bf931f780e22682738e05ea93b25150e457267b0f353b3a492100b'
+    TACIT_SHA_CHECKSUM = '24daa69f8dd0bfc121061500c9beac25a13c1697ea57c79228e7b28cf6182683'
+    verbose_dict = breadboard_functions.get_run_parameter_dict_from_id(bc, RUN_ID, verbose = True)
+    tacit_dict = breadboard_functions.get_run_parameter_dict_from_id(bc, RUN_ID, verbose = False)
+    verbose_bytes = json.dumps(verbose_dict).encode("ASCII") 
+    tacit_dict_bytes = json.dumps(tacit_dict).encode("ASCII")
+    assert check_sha_hash(verbose_bytes, VERBOSE_SHA_CHECKSUM)
+    assert check_sha_hash(tacit_dict_bytes, TACIT_SHA_CHECKSUM)
 
 
 

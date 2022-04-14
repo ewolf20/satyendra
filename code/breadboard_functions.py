@@ -194,22 +194,32 @@ def get_run_parameter_dicts_from_ids(bc, run_id_list, start_datetime = None, end
         else:
             raise RuntimeError('Unable to find specified run id.')
     original_order_results_dict_list = [f[1] for f in sorted(tagged_results_dict_list, key = lambda el: el[0])] 
+    original_order_params_dict_list = [_get_filtered_parameters_dict(f, verbose = verbose) for f in original_order_results_dict_list]
+    return original_order_params_dict_list
+
+
+def get_run_parameter_dict_from_id(bc, run_id, verbose = False, allowed_seconds_diff = 5):
+    resp = _query_breadboard_with_retries(bc, 'get', '/runs/' + str(run_id))
+    results = resp.json()
+    return _get_filtered_parameters_dict(results, verbose = verbose) 
+
+
+
+
+def _get_filtered_parameters_dict(results_dict, verbose = False):
+    cleaned_dict = {}
+    cleaned_dict['id'] = results_dict['id']
+    cleaned_dict['runtime'] = results_dict['runtime'] 
+    if 'badshot' in results_dict:
+        cleaned_dict['badshot'] = results_dict['badshot'] 
+    params_dict = results_dict['parameters']
     if(verbose):
-        original_order_params_dict_list = [f['parameters'] for f in original_order_results_dict_list]
-        return original_order_params_dict_list
+        cleaned_dict.update(params_dict)
     else:
-        original_order_params_dict_list = []
-        for results_dict in original_order_results_dict_list:
-            cleaned_dict = {} 
-            cleaned_dict['id'] = results_dict['id'] 
-            cleaned_dict['runtime'] = results_dict['runtime']
-            params_dict = results_dict['parameters']
-            if 'badshot' in results_dict:
-                params_dict['badshot'] = results_dict['badshot']
-            for list_bound_variable_name in params_dict['ListBoundVariables']:
-                cleaned_dict[list_bound_variable_name] = params_dict[list_bound_variable_name]
-            original_order_params_dict_list.append(cleaned_dict)
-        return original_order_params_dict_list
+        list_bound_var_names = params_dict['ListBoundVariables']
+        for list_bound_var_name in list_bound_var_names:
+            cleaned_dict[list_bound_var_name] = params_dict[list_bound_var_name]
+    return cleaned_dict
 
 """
 Clone for getting runs by datetime range from breadboard client
