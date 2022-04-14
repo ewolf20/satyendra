@@ -81,8 +81,8 @@ def get_run_id_from_datetime(bc, target_datetime, allowed_seconds_before = 5, al
 def get_run_ids_from_datetime_range(bc, start_datetime, end_datetime, allowed_seconds_deviation = 5):
     datetime_range_start = start_datetime - datetime.timedelta(seconds = allowed_seconds_deviation)
     datetime_range_end = end_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-    response_dict_list = _get_runs_dict_from_datetime_range(bc, (datetime_range_start, datetime_range_end))
-    runs_list = [d['id'] for d in response_dict_list]
+    results_dict_list = _get_results_dict_list_from_datetime_range(bc, (datetime_range_start, datetime_range_end))
+    runs_list = [d['id'] for d in results_dict_list]
     return runs_list
 
 
@@ -118,14 +118,14 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
     else:
         lower_limit_datetime = min_datetime - datetime.timedelta(seconds = allowed_seconds_deviation) 
         upper_limit_datetime = max_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-        resp_dict_list = _get_runs_dict_from_datetime_range(bc, (lower_limit_datetime, upper_limit_datetime))
+        results_dict_list = _get_results_dict_list_from_datetime_range(bc, (lower_limit_datetime, upper_limit_datetime))
         original_order_datetime_run_id_list = []
         for current_datetime in datetime_list:
-            for run_dict in resp_dict_list:
-                run_datetime = datetime.datetime.strptime(run_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
+            for results_dict in results_dict_list:
+                run_datetime = datetime.datetime.strptime(results_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
                 time_difference = run_datetime - current_datetime
                 if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
-                    run_id = run_dict['id']
+                    run_id = results_dict['id']
                     original_order_datetime_run_id_list.append((current_datetime, run_id))
                     break
             else:
@@ -135,25 +135,81 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
 
 #TODO: Should really implement this at the level of breadboard python client, probably in the mixins, though then I'll have to get push access.
 #TODO: Need to remove the hard-coded limit and read it from the http response somehow...
-def _get_runs_dict_from_datetime_range(bc, datetime_range, page = '', **kwargs):
+def _get_results_dict_list_from_datetime_range(bc, datetime_range, page = '', **kwargs):
     #The page size of breadboard's http responses, hard-coded in
     LIMIT = 200
     initial_response = get_runs(bc, datetime_range, page = page, **kwargs)
     initial_response_json = initial_response.json() 
-    total_results_count = initial_response_json.get('count')
     results_dict_list = []
     results_dict_list.extend(initial_response_json.get('results')) 
     next = initial_response_json.get('next') 
     offset = 0 
     offset += LIMIT
     while next:
-        response = get_runs(bc, datetime_range, page = page, offset = offset, **kwargs)
+        response = get_runs(bc, datetime_range, page = page, offset = offset, limit = LIMIT)
         response_json = response.json() 
         results_dict_list.extend(response_json.get('results')) 
         next = response_json.get('next') 
         offset += LIMIT
     return results_dict_list
 
+
+def get_datetime_from_run_id(bc, run_id):
+    resp = _query_breadboard_with_retries(bc, 'get', '/runs/' + str(run_id))
+    resp_json = resp.json()
+    run_time_string = resp_json.get('runtime') 
+    return datetime.datetime.strptime(run_time_string, BREADBOARD_DATETIME_FORMAT_STRING)
+
+
+
+"""Method for getting run parameter dicts from a list of run_ids.
+
+Params:
+
+start_datetime, end_datetime: Optional; if not specified, gets these by querying breadboard, but this will slow things down.
+
+Returns: 
+
+A list [run1params, run2params, ...] of the 'params' from the 'results' dict returned for each run by breadboard."""
+def get_run_parameter_dicts_from_ids(bc, run_id_list, start_datetime = None, end_datetime = None, verbose = False, allowed_seconds_deviation = 5):
+    tagged_run_id_list = list(enumerate(run_id_list)) 
+    sorted_tagged_run_id_list = sorted(tagged_run_id_list, key = lambda f: f[1], reverse = True) 
+    if(not start_datetime):
+        first_run_id = sorted_tagged_run_id_list[-1][1] 
+        start_datetime = get_datetime_from_run_id(bc, first_run_id)
+    offset_start_datetime = start_datetime - datetime.timedelta(allowed_seconds_deviation)
+    if(not end_datetime):
+        last_run_id = sorted_tagged_run_id_list[0][1] 
+        end_datetime = get_datetime_from_run_id(bc, last_run_id)
+    offset_end_datetime = end_datetime + datetime.timedelta(allowed_seconds_deviation)
+    results_dict_list = _get_results_dict_list_from_datetime_range(bc, (offset_start_datetime, offset_end_datetime))
+    tagged_results_dict_list = []
+    #Naive bubble search...
+    for tagged_run_id in sorted_tagged_run_id_list:
+        tag, run_id = tagged_run_id
+        for results_dict in results_dict_list:
+            if results_dict['id'] == run_id:
+                tagged_results_dict_list.append((tag, results_dict))
+                break 
+        else:
+            raise RuntimeError('Unable to find specified run id.')
+    original_order_results_dict_list = [f[1] for f in sorted(tagged_results_dict_list, key = lambda el: el[0])] 
+    if(verbose):
+        original_order_params_dict_list = [f['parameters'] for f in original_order_results_dict_list]
+        return original_order_params_dict_list
+    else:
+        original_order_params_dict_list = []
+        for results_dict in original_order_results_dict_list:
+            cleaned_dict = {} 
+            cleaned_dict['id'] = results_dict['id'] 
+            cleaned_dict['runtime'] = results_dict['runtime']
+            params_dict = results_dict['parameters']
+            if 'badshot' in results_dict:
+                params_dict['badshot'] = results_dict['badshot']
+            for list_bound_variable_name in params_dict['ListBoundVariables']:
+                cleaned_dict[list_bound_variable_name] = params_dict[list_bound_variable_name]
+            original_order_params_dict_list.append(cleaned_dict)
+        return original_order_params_dict_list
 
 """
 Clone for getting runs by datetime range from breadboard client
