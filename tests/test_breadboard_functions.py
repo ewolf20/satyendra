@@ -3,7 +3,6 @@ import json
 import hashlib
 import os
 import sys
-from tabnanny import check
 
 path_to_file = os.path.dirname(os.path.abspath(__file__))
 path_to_satyendra = path_to_file + "/../../"
