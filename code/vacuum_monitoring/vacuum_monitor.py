@@ -3,8 +3,8 @@ import numpy as np
 import time 
 
 from ..code.status_monitor import StatusMonitor
-from ..code.ionpump import IonPump 
-from ..code.iongauge import IonGauge
+from ionpump import IonPump 
+from iongauge import IonGauge
 
 class VacuumMonitor(StatusMonitor):
 
@@ -144,9 +144,22 @@ class VacuumMonitor(StatusMonitor):
             
     def give_instrument_names(self):
         print("This VacuumMonitor instance has the following instruments: ")
-        for instrument_name in instrument_names_list:
+        for instrument_name in self.instrument_names_list:
             print(instrument_name)
 
+
+
+    def failsafe(self, instrument_names_to_shutdown = None):
+        if(not instrument_names_to_shutdown):
+            instrument_names_to_shutdown = self.instrument_names_list
+        instruments_shutdown_tuple_list = [f for f in zip(self.instrument_list, self.instrument_names_list) if f[1] in instrument_names_to_shutdown]
+        status_list = []
+        for instrument, instrument_name in instruments_shutdown_tuple_list:
+            success = instrument.failsafe()
+            status_list.append(success)
+        return status_list
+
+        
 
     #TODO: Handle exceptions
     @staticmethod
