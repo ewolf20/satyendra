@@ -6,7 +6,7 @@ import importlib.resources as pkg_resources
 import pandas as pd
 import numpy as np
 
-from slack_bot import SlackBot
+from .slack_bot import SlackBot
 
 from .. import logs as l
 

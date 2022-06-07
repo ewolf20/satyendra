@@ -390,7 +390,7 @@ class ImageWatchdog():
     or the maximally abridged datetimestring format (for which the imagename can still be deduced, since we only saved side images this way).
     Note that the method _will fail_ if two different datetime string formats are mixed."""
     @staticmethod 
-    def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None):
+    def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None, allowed_seconds_deviation = 5):
         datetime_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%Y_%H_%M_%S"]
         filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f]
         for datetime_format in datetime_formats:
@@ -455,7 +455,8 @@ class ImageWatchdog():
                 if run_ids_absent:
                     #GET RUN IDS
                     bc = breadboard_functions.load_breadboard_client()
-                    datetime_and_run_id_tuple_list = breadboard_functions.label_datetime_list_with_run_ids(bc, filename_datetimes_list)
+                    datetime_and_run_id_tuple_list = breadboard_functions.label_datetime_list_with_run_ids(bc, filename_datetimes_list, 
+                                                                                                            allowed_seconds_deviation = allowed_seconds_deviation)
                     filename_run_ids = [f[1] for f in datetime_and_run_id_tuple_list]
                     for old_filename, run_id, filename_datetime, image_type_string in zip(filenames_list, filename_run_ids, filename_datetimes_list, 
                                                                         filename_image_type_strings_list):

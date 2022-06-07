@@ -2,9 +2,9 @@ import serial
 import numpy as np 
 import time 
 
-from ..code.status_monitor import StatusMonitor
-from ionpump import IonPump 
-from iongauge import IonGauge
+from ..status_monitor import StatusMonitor
+from .ionpump import IonPump 
+from .iongauge import IonGauge
 
 class VacuumMonitor(StatusMonitor):
 

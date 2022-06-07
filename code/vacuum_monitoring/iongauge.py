@@ -68,7 +68,9 @@ class IonGauge:
 
     def send_and_get_response(self, command):
         self.send(command)
-        return self.serial_port.read_until("\r".encode("ASCII"))
+        resp = self.serial_port.read_until("\r".encode("ASCII"))
+        self.serial_port.reset_input_buffer()
+        return resp 
 
     """Turns on the filament, requires 10 seconds warmup time before making measurements."""
     def turn_on(self, filament_index = 1):
