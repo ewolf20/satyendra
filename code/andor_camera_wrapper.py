@@ -38,8 +38,13 @@ class AndorCameraWrapper():
             self.camera = Andor.AndorSDK2Camera() 
         else:
             raise RuntimeError("The specified camera type is not supported.") 
-        while not self.camera.is_opened():
+        TIMEOUT = 1
+        tick = time.time()
+        while not self.camera.is_opened() and time.time() - tick < TIMEOUT:
             pass
+        if not self.camera.is_opened():
+            raise RuntimeError("Camera opening timed out.")
+        
 
 
     def _initialize_camera(self):
@@ -60,6 +65,4 @@ class AndorCameraWrapper():
 
     def _initialize_sdk3_camera_helper(self, image_mode_config_dict):
         pass
-
-    
 
