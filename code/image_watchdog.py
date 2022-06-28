@@ -1,6 +1,6 @@
 import datetime
-from email.mime import image 
 import os 
+import shutil
 import time 
 
 from astropy.io import fits
@@ -93,7 +93,8 @@ class ImageWatchdog():
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
-                os.rename(original_pathname, new_pathname)
+                #Use shutil instead of os.rename to allow copying across drives
+                shutil.move(original_pathname, new_pathname)
         return labeled_image_bool
 
 
