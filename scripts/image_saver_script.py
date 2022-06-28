@@ -10,7 +10,7 @@ path_to_satyendra = path_to_file + "/../../"
 
 sys.path.insert(0, path_to_satyendra)
 
-from satyendra.code import ImageWatchdog
+from satyendra.code.image_watchdog import ImageWatchdog
 
 IMAGE_EXTENSION = ".fits"
 
