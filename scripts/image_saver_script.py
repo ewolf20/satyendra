@@ -1,6 +1,7 @@
 import datetime
 import importlib.resources as pkg_resources
 import json
+import shutil
 import sys 
 import os 
 import warnings
@@ -20,6 +21,7 @@ def main():
     camera_saving_folder_pathname, saving_location_root_pathname = load_config()
     user_entered_name = prompt_for_savefolder_input() 
     savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
+    is_dryrun = user_entered_name == "dryrun"
     image_specification_list = prompt_for_image_type_input()
     print("Initializing watchdog...")
     my_watchdog = ImageWatchdog(camera_saving_folder_pathname, savefolder_pathname, image_specification_list, image_extension = IMAGE_EXTENSION)
@@ -34,6 +36,9 @@ def main():
         print("Trying to save the last images...") 
         my_watchdog.label_images_with_run_ids() 
         print("Success!") 
+    finally:
+        if(is_dryrun):
+            shutil.rmtree(savefolder_pathname)
 
 
 
