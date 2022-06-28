@@ -39,7 +39,7 @@ def main():
 
 def load_config():
     import satyendra.configs as c
-    with pkg_resources.path(c, "image_saver_config.json") as json_config_path:
+    with pkg_resources.path(c, "image_saver_config_local.json") as json_config_path:
         with open(json_config_path) as json_config_file:
             config_dict = json.load(json_config_file)
             camera_saving_folder_pathname = config_dict["camera_saving_folder_pathname"]
