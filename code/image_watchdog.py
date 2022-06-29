@@ -44,7 +44,7 @@ class ImageWatchdog():
         self.watchfolder_path = watchfolder_path
         self.savefolder_path = savefolder_path
         if(not os.path.isdir(self.savefolder_path)):
-            os.mkdir(self.savefolder_path)
+            os.makedirs(self.savefolder_path)
         self.no_id_folder_path = os.path.join(self.savefolder_path, "no_id")
         if(not os.path.isdir(self.no_id_folder_path)):
             os.mkdir(self.no_id_folder_path)
