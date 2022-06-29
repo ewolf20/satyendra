@@ -19,8 +19,10 @@ def main():
     print("Welcome to the image saving script!")
     print("Images will be labelled with run_ids and saved in today's folder under a user-chosen name.") 
     camera_saving_folder_pathname, saving_location_root_pathname = load_config()
-    user_entered_name = prompt_for_savefolder_input() 
-    savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
+    savefolder_pathname = None 
+    while not savefolder_pathname:
+        user_entered_name = prompt_for_savefolder_input() 
+        savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
     is_dryrun = user_entered_name == "dryrun"
     image_specification_list = prompt_for_image_type_input()
     print("Initializing watchdog...")
@@ -87,7 +89,10 @@ def initialize_savefolder(saving_location_root_pathname, user_save_label):
     current_year_month_day = current_datetime.strftime("%Y-%m-%d")
     savefolder_pathname = os.path.join(saving_location_root_pathname, current_year, current_year_month, current_year_month_day, user_save_label)
     if(os.path.isdir(savefolder_pathname)):
-        raise RuntimeError("Name already taken")    
+        print("Folder already exists. Type 'y' (no quotes) to use it anyway, or anything else to retry.")
+        user_response = input()
+        if not user_response == 'y':
+            savefolder_pathname = None
     return savefolder_pathname 
 
 if __name__ == "__main__":
