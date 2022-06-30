@@ -24,6 +24,8 @@ def main():
         user_entered_name = prompt_for_savefolder_input() 
         savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
     is_dryrun = user_entered_name == "dryrun"
+    if is_dryrun:
+        print("Running as a dry run. WARNING: All images will be deleted on termination.")
     image_specification_list = prompt_for_image_type_input()
     print("Initializing watchdog...")
     my_watchdog = ImageWatchdog(camera_saving_folder_pathname, savefolder_pathname, image_specification_list, image_extension = IMAGE_EXTENSION)
