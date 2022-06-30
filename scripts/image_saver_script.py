@@ -16,8 +16,8 @@ from satyendra.code.image_watchdog import ImageWatchdog
 IMAGE_EXTENSION = ".fits"
 
 def main():
-    print("Welcome to the image saving script!")
-    print("Images will be labelled with run_ids and saved in today's folder under a user-chosen name.") 
+    print("Welcome to the image saving script!\n")
+    print("Images will be labelled with run_ids and saved in today's folder under a user-chosen name.\n") 
     camera_saving_folder_pathname, saving_location_root_pathname = load_config()
     savefolder_pathname = None 
     while not savefolder_pathname:
@@ -25,11 +25,11 @@ def main():
         savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
     is_dryrun = user_entered_name == "dryrun"
     if is_dryrun:
-        print("Running as a dry run. WARNING: All images will be deleted on termination.")
+        print("Running as a dry run. WARNING: All images will be deleted on termination.\n")
     image_specification_list = prompt_for_image_type_input()
-    print("Initializing watchdog...")
+    print("Initializing watchdog...\n")
     my_watchdog = ImageWatchdog(camera_saving_folder_pathname, savefolder_pathname, image_specification_list, image_extension = IMAGE_EXTENSION)
-    print("Running! Interrupt with Ctrl+C at your leisure.") 
+    print("Running! Interrupt with Ctrl+C at your leisure.\n") 
     try:
         while True:
             image_saved = my_watchdog.label_images_with_run_ids()
@@ -59,11 +59,11 @@ def prompt_for_savefolder_input():
     input_is_ok = False 
     while not input_is_ok:
         print("""Please enter the measurement folder name. Using the name 'dryrun' will initialize a dry run - images will be saved, but 
-        deleted when the program terminates.""")
+        deleted when the program terminates.\n""")
         print("Please don't use weird characters.")
         user_entered_name = input()
-        print("Is the folder name " + user_entered_name + " ok?") 
-        print("Type 'y' (without quotes) for yes, or anything else for no.") 
+        print("Is the folder name " + user_entered_name + " ok?\n") 
+        print("Type 'y' (without quotes) for yes, or anything else for no.\n") 
         ok_response = input() 
         input_is_ok = ok_response == 'y' 
     return user_entered_name
@@ -73,9 +73,9 @@ def prompt_for_image_type_input():
     SUPPORT_LIST = ["side", "top"]
     input_is_ok = False 
     while not input_is_ok:
-        print("Please enter the type of imaging. Supported imaging types as of now are: ") 
+        print("Please enter the type of imaging. Supported imaging types as of now are: \n") 
         for image_type in SUPPORT_LIST:
-            print(image_type)
+            print(image_type + "\n")
         user_input = input() 
         input_is_ok = user_input in SUPPORT_LIST
     if(user_input == "side"):
@@ -91,7 +91,7 @@ def initialize_savefolder(saving_location_root_pathname, user_save_label):
     current_year_month_day = current_datetime.strftime("%Y-%m-%d")
     savefolder_pathname = os.path.join(saving_location_root_pathname, current_year, current_year_month, current_year_month_day, user_save_label)
     if(os.path.isdir(savefolder_pathname)):
-        print("Folder already exists. Type 'y' (no quotes) to use it anyway, or anything else to retry.")
+        print("Folder already exists. Type 'y' (no quotes) to use it anyway, or anything else to retry.\n")
         user_response = input()
         if not user_response == 'y':
             savefolder_pathname = None
