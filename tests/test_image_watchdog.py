@@ -17,9 +17,18 @@ def check_sha_hash(my_bytes, checksum_string):
     m.update(my_bytes) 
     return m.hexdigest() == checksum_string
 
+
+IMAGE_FILE_EXTENSION_STRING = '.fits'
+TEST_EXTENSION_STRING = '.txt'
+SAVEFOLDER_PATH = 'resources/savefolder_temp' 
+WATCHFOLDER_PATH = 'resources/watchfolder_temp'
+WATCHFOLDER_REF_PATH = 'resources/watchfolder_ref'
+IMAGE_SPEC_LIST = ['ImageA', 'ImageB']
+
+
 class TestImageWatchdog:
 
-    IMAGE_FILE_EXTENSION_STRING = '.fits'
+
 
     @staticmethod 
     def test_clean_filenames():
@@ -41,14 +50,50 @@ class TestImageWatchdog:
             shutil.rmtree('resources/Side_Temp')
             shutil.rmtree('resources/Modern_Temp')
 
-
+    @staticmethod 
+    def init_watchdog():
+            my_watchdog = ImageWatchdog(WATCHFOLDER_PATH, SAVEFOLDER_PATH, 
+                                    IMAGE_SPEC_LIST, image_extension = '.txt')
+            return my_watchdog
+        
 
     @staticmethod 
-    def get_checksum_from_folder_filenames(folder_path):
-        sorted_stripped_filenames = [f for f in sorted(os.listdir(folder_path)) if TestImageWatchdog.IMAGE_FILE_EXTENSION_STRING in f]
-        m = hashlib.sha256() 
+    def test_init():
+        try:
+            shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
+            my_watchdog = TestImageWatchdog.init_watchdog() 
+            assert True 
+        finally:
+            shutil.rmtree(WATCHFOLDER_PATH)
+            shutil.rmtree(SAVEFOLDER_PATH)
+
+    @staticmethod 
+    def test_label_images_with_run_ids():
+        WATCHFOLDER_CHECKSUM_STRING = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        SAVEFOLDER_CHECKSUM_STRING = "640a84f1e41aa2c95d0d63b226101c95ff9041ff1d2f8da4a62e5e979948baf5"
+        NO_ID_CHECKSUM_STRING = "e43350b2c85f30b47c6c79e98f531d24d095306adf2ef81a1554ea2396cd669d"
+
+        try:
+            shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
+            my_watchdog = TestImageWatchdog.init_watchdog()
+            my_watchdog.label_images_with_run_ids()
+            no_ids_path = os.path.join(SAVEFOLDER_PATH, 'no_id')
+            watchfolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(WATCHFOLDER_PATH, extension = '.txt')
+            savefolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(SAVEFOLDER_PATH, extension = '.txt')
+            no_id_folder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(no_ids_path, extension = '.txt')
+            assert watchfolder_checksum == WATCHFOLDER_CHECKSUM_STRING
+            assert savefolder_checksum == SAVEFOLDER_CHECKSUM_STRING 
+            assert no_id_folder_checksum == NO_ID_CHECKSUM_STRING
+        finally:
+            shutil.rmtree(WATCHFOLDER_PATH)
+            shutil.rmtree(SAVEFOLDER_PATH)
+
+    @staticmethod 
+    def get_checksum_from_folder_filenames(folder_path, extension = IMAGE_FILE_EXTENSION_STRING):
+        sorted_stripped_filenames = [f for f in sorted(os.listdir(folder_path)) if extension in f]
+        m = hashlib.sha256()
         for filename in sorted_stripped_filenames:
-            m.update(filename.encode("ASCII")) 
+            m.update(filename.encode("ASCII"))
         return m.hexdigest()
 
         

@@ -1,5 +1,6 @@
 import datetime
 import time 
+import warnings
 
 BREADBOARD_DATETIME_FORMAT_STRING = "%Y-%m-%dT%H:%M:%SZ"
 
@@ -93,12 +94,22 @@ Labels a list of datetimes with corresponding run_ids.
 Given input [datetime1, datetime2, ...], returns a list of tuples [(datetime1, runID1), (datetime2, runID2), ...].
 Note that the datetimes are datetime objects, and the runID is returned as an int.
 
-If well_formed = True, speeds up by sorting datetimes rather than matching brute force. With this flag, 
-function will break if either a) run ids are not returned by get_run_ids_from_datetime_range monotonically, b) the given datetime list 
-has holes, i.e. there are run datetimes which occur between the max and min of the list but are not in the list, or c) there are two 
-unique datetimes in the list which are repeated a different number of times. 
+If well_formed = True, speeds up by sorting datetimes rather than matching brute force. 
+
+With this flag, function will break (either erroring out or giving incorrect results) if 
+
+a) run ids are not returned by get_run_ids_from_datetime_range monotonically
+b) the given datetime list has holes, i.e. there are run datetimes which occur between the max and min of the list but are not in the list
+c) there are run_ids which are not able to be matched with datetimes
+d) there are at least two unique datetimes which appear in the list a different number of times.
+
+If allow_fails = False, the program will throw an error if there are any datetimes which cannot be matched with a run id. If true, it will issue a warning 
+and then return None in place of the missing id. 
+
 """
-def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, well_formed = False):
+def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, well_formed = False, allow_fails = False):
+    if(len(datetime_list) == 0):
+        return [] 
     min_datetime = min(datetime_list) 
     max_datetime = max(datetime_list)
     if(well_formed):
@@ -129,7 +140,11 @@ def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviatio
                     original_order_datetime_run_id_list.append((current_datetime, run_id))
                     break
             else:
-                raise RuntimeError("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING))
+                if allow_fails:
+                    warnings.warn("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING), RuntimeWarning)
+                    original_order_datetime_run_id_list.append((current_datetime, None))
+                else:
+                    raise RuntimeError("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING))
         return original_order_datetime_run_id_list
 
 
