@@ -96,7 +96,7 @@ class ImageWatchdog():
                 #Use shutil instead of os.rename to allow copying across drives
                 shutil.move(original_pathname, new_pathname)
         return labeled_image_bool
-
+                    
 
     """
     Returns a list of the current images in the watchfolder.

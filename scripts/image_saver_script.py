@@ -42,8 +42,14 @@ def main():
         print("Success!") 
     finally:
         if(is_dryrun):
-            shutil.rmtree(savefolder_pathname)
+            nuke_savefolder(savefolder_pathname)
 
+
+def nuke_savefolder(savefolder_pathname):
+    for root, dirs, files in os.walk(savefolder_pathname):
+        for filename in files:
+            file_path = os.path.join(root, filename) 
+            os.remove(file_path)
 
 
 def load_config():
