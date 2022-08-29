@@ -36,9 +36,12 @@ def main():
             if(image_saved):
                 print("Saved something at: ") 
                 print(datetime.datetime.now().strftime("%H-%M-%S"))
+            my_watchdog.clear_save_backlog()
     except KeyboardInterrupt:
         print("Trying to save the last images...") 
         my_watchdog.label_images_with_run_ids() 
+        while(len(my_watchdog.save_backlog_list) > 0):
+            my_watchdog.clear_save_backlog()
         print("Success!") 
     finally:
         if(is_dryrun):

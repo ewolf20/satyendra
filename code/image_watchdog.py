@@ -51,6 +51,7 @@ class ImageWatchdog():
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
         self.bc = breadboard_functions.load_breadboard_client()
         self.image_extension = image_extension
+        self.save_backlog_list = []
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
     """
@@ -93,10 +94,27 @@ class ImageWatchdog():
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
-                #Use shutil instead of os.rename to allow copying across drives
-                shutil.move(original_pathname, new_pathname)
+                #Check if the remote is connected; if not, append to a backlog
+                if not os.isdir(self.savefolder_path):
+                    self.save_backlog_list.append((original_pathname, new_pathname))
+                else:
+                    #Use shutil instead of os.rename to allow copying across drives
+                    shutil.move(original_pathname, new_pathname)
         return labeled_image_bool
 
+
+    def clear_save_backlog(self):
+        if os.isdir(self.savefolder_path):
+            failed_list = []
+            for i, pathname_tuple in enumerate(self.save_backlog_list): 
+                original_pathname, new_pathname = pathname_tuple
+                try:
+                    shutil.move(original_pathname, new_pathname)
+                except (FileNotFoundError, OSError) as e:
+                    failed_list.append(pathname_tuple) 
+            self.save_backlog_list = failed_list
+                    
+                    
 
     """
     Returns a list of the current images in the watchfolder.
