@@ -22,8 +22,8 @@ def main():
     savefolder_pathname = None 
     while not savefolder_pathname:
         user_entered_name = prompt_for_savefolder_input() 
-        savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name)
-    is_dryrun = user_entered_name == "dryrun"
+        is_dryrun = user_entered_name == "dryrun"
+        savefolder_pathname = initialize_savefolder(saving_location_root_pathname, user_entered_name, is_dryrun)
     if is_dryrun:
         print("Running as a dry run. WARNING: All images will be deleted on termination.\n")
     image_specification_list = prompt_for_image_type_input()
@@ -42,7 +42,7 @@ def main():
         print("Success!") 
     finally:
         if(is_dryrun):
-            shutil.rmtree(savefolder_pathname)
+            nuke_savefolder(savefolder_pathname)
 
 
 
@@ -60,8 +60,10 @@ def prompt_for_savefolder_input():
     while not input_is_ok:
         print("""Please enter the measurement folder name. Using the name 'dryrun' will initialize a dry run - images will be saved, but 
         deleted when the program terminates.\n""")
-        print("Please don't use weird characters.")
+        print("Only alphanumeric characters and _ allowed.\n")
         user_entered_name = input()
+        if is_savefolder_name_forbidden(user_entered_name):
+            print("Can't use that name. Pick another.\n")
         print("Is the folder name " + user_entered_name + " ok?\n") 
         print("Type 'y' (without quotes) for yes, or anything else for no.\n") 
         ok_response = input() 
@@ -84,18 +86,39 @@ def prompt_for_image_type_input():
         return ["TopA", "TopB"] 
 
 
-def initialize_savefolder(saving_location_root_pathname, user_save_label):
+def initialize_savefolder(saving_location_root_pathname, user_save_label, is_dryrun):
     current_datetime = datetime.datetime.now() 
     current_year = current_datetime.strftime("%Y")
     current_year_month = current_datetime.strftime("%Y-%m")
     current_year_month_day = current_datetime.strftime("%Y-%m-%d")
     savefolder_pathname = os.path.join(saving_location_root_pathname, current_year, current_year_month, current_year_month_day, user_save_label)
-    if(os.path.isdir(savefolder_pathname)):
+    if(os.path.isdir(savefolder_pathname) and not is_dryrun):
         print("Folder already exists. Type 'y' (no quotes) to use it anyway, or anything else to retry.\n")
         user_response = input()
         if not user_response == 'y':
             savefolder_pathname = None
     return savefolder_pathname 
+
+
+def nuke_savefolder(savefolder_pathname):
+    for root, dirs, files in os.walk(savefolder_pathname):
+        for filename in files:
+            file_path = os.path.join(root, filename) 
+            os.remove(file_path)
+
+
+#Function which checks for forbidden savefolder names: namely, those with any characters 
+#besides alphanumeric ones or the _ character
+def is_savefolder_name_forbidden(savefolder_name):
+    is_abs_path = os.path.isabs(savefolder_name)
+    has_special_characters = False 
+    split_string = savefolder_name.split("_")
+    for segment in split_string:
+        segment_has_special_characters = (not segment.isalnum() and len(segment) > 0)
+        has_special_characters = has_special_characters or segment_has_special_characters 
+    return (is_abs_path or has_special_characters)
+
+
 
 if __name__ == "__main__":
     main() 
