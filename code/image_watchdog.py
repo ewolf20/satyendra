@@ -66,7 +66,7 @@ class ImageWatchdog():
     delays in runs reaching the server.
     
     mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id."""
-    def label_images_with_run_ids(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True):
+    def associate_images_with_run(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True, verbose = True):
         image_filename_list = self._get_image_filenames_in_watchfolder() 
         valid_timestamps_list = []
         valid_datetimes_list = [] 
@@ -78,16 +78,17 @@ class ImageWatchdog():
             if(checked_current_timedelta.total_seconds() > labelling_waiting_period and not checked_datetime_string in valid_timestamps_list):
                 valid_timestamps_list.append(checked_datetime_string)
                 valid_datetimes_list.append(checked_datetime)
-        datetime_and_run_id_list = breadboard_functions.label_datetime_list_with_run_ids(self.bc, valid_datetimes_list, 
+        datetime_and_run_parameters_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(self.bc, valid_datetimes_list, 
                                                                             allowed_seconds_deviation = mismatch_tolerance, 
-                                                                            allow_fails = allow_missing_ids)
-        run_id_list = [f[1] for f in datetime_and_run_id_list]
-        for run_id, timestamp in zip(run_id_list, valid_timestamps_list):
+                                                                            allow_fails = allow_missing_ids, verbose = verbose)
+        run_parameters_list = [f[1] for f in datetime_and_run_parameters_list]
+        for run_parameters, timestamp in zip(run_parameters_list, valid_timestamps_list):
             labeled_image_bool = True
             same_timestamp_filename_list = [f for f in image_filename_list if timestamp in f]
             for same_timestamp_filename in same_timestamp_filename_list:
                 original_pathname = os.path.join(self.watchfolder_path, same_timestamp_filename)
-                if(not run_id is None):
+                if(not run_parameters is None):
+                    run_id = run_parameters["id"]
                     labelled_filename = str(run_id) + FILENAME_DELIMITER_CHAR + same_timestamp_filename 
                     new_pathname = os.path.join(self.savefolder_path, labelled_filename)
                 else:
@@ -184,9 +185,9 @@ class ImageWatchdog():
                 if run_ids_absent:
                     #GET RUN IDS
                     bc = breadboard_functions.load_breadboard_client()
-                    datetime_and_run_id_tuple_list = breadboard_functions.label_datetime_list_with_run_ids(bc, filename_datetimes_list, 
+                    datetime_and_run_parameters_tuple_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(bc, filename_datetimes_list, 
                                                                                                             allowed_seconds_deviation = allowed_seconds_deviation)
-                    filename_run_ids = [f[1] for f in datetime_and_run_id_tuple_list]
+                    filename_run_ids = [f[1]['id'] for f in datetime_and_run_parameters_tuple_list]
                     for old_filename, run_id, filename_datetime, image_type_string in zip(filenames_list, filename_run_ids, filename_datetimes_list, 
                                                                         filename_image_type_strings_list):
                         new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string

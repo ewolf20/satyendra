@@ -79,73 +79,42 @@ def get_run_id_from_datetime(bc, target_datetime, allowed_seconds_before = 5, al
         run_dict = runs_list[0] 
         return run_dict['id']
 
-def get_run_ids_from_datetime_range(bc, start_datetime, end_datetime, allowed_seconds_deviation = 5):
-    datetime_range_start = start_datetime - datetime.timedelta(seconds = allowed_seconds_deviation)
-    datetime_range_end = end_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-    results_dict_list = _get_results_dict_list_from_datetime_range(bc, (datetime_range_start, datetime_range_end))
-    runs_list = [d['id'] for d in results_dict_list]
-    return runs_list
-
 
 #TODO: Add support for non-contiguous datetime ranges; just a search in the returned run id dictionary.
 """
-Labels a list of datetimes with corresponding run_ids.
+Associates a list of datetimes with run parameters. 
 
-Given input [datetime1, datetime2, ...], returns a list of tuples [(datetime1, runID1), (datetime2, runID2), ...].
-Note that the datetimes are datetime objects, and the runID is returned as an int.
-
-If well_formed = True, speeds up by sorting datetimes rather than matching brute force. 
-
-With this flag, function will break (either erroring out or giving incorrect results) if 
-
-a) run ids are not returned by get_run_ids_from_datetime_range monotonically
-b) the given datetime list has holes, i.e. there are run datetimes which occur between the max and min of the list but are not in the list
-c) there are run_ids which are not able to be matched with datetimes
-d) there are at least two unique datetimes which appear in the list a different number of times.
+Given input [datetime1, datetime2, ...], returns a list of tuples [(datetime1, runparameters1), (datetime2, runparameters2), ...].
+Note that the datetimes are datetime objects, and runparameters is the dict returned by get_run_parameters_dict_from_ids.
 
 If allow_fails = False, the program will throw an error if there are any datetimes which cannot be matched with a run id. If true, it will issue a warning 
-and then return None in place of the missing id. 
-
+and then return None in place of the missing id.
 """
-def label_datetime_list_with_run_ids(bc, datetime_list, allowed_seconds_deviation = 5, well_formed = False, allow_fails = False):
+def get_run_parameter_dicts_from_datetimes(bc, datetime_list, allowed_seconds_deviation = 5, allow_fails = False, 
+                                    verbose = False):
     if(len(datetime_list) == 0):
         return [] 
     min_datetime = min(datetime_list) 
     max_datetime = max(datetime_list)
-    if(well_formed):
-        run_ids_descending_order = get_run_ids_from_datetime_range(bc, min_datetime, max_datetime, allowed_seconds_deviation= allowed_seconds_deviation)
-        if(len(datetime_list) % len(run_ids_descending_order) != 0):
-            raise RuntimeError("Did not receive the correct number of run ids for the given datetime range.")
-        datetimes_per_run_id = len(datetime_list) // len(run_ids_descending_order) 
-        tagged_datetimes_list = list(enumerate(datetime_list)) 
-        descending_tagged_datetimes_list = sorted(tagged_datetimes_list, key = lambda f: f[1], reverse = True)
-        run_id_labeled_tagged_datetimes_list = [] 
-        for i, tag_datetime_tuple in enumerate(descending_tagged_datetimes_list):
-            tag, current_datetime = tag_datetime_tuple 
-            run_id = run_ids_descending_order[i // datetimes_per_run_id]
-            run_id_labeled_tagged_datetimes_list.append((tag, (current_datetime, run_id)))
-        original_order_datetime_run_id_list = [f[1] for f in sorted(run_id_labeled_tagged_datetimes_list, key = lambda f: f[0])]
-        return original_order_datetime_run_id_list
-    else:
-        lower_limit_datetime = min_datetime - datetime.timedelta(seconds = allowed_seconds_deviation) 
-        upper_limit_datetime = max_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
-        results_dict_list = _get_results_dict_list_from_datetime_range(bc, (lower_limit_datetime, upper_limit_datetime))
-        original_order_datetime_run_id_list = []
-        for current_datetime in datetime_list:
-            for results_dict in results_dict_list:
-                run_datetime = datetime.datetime.strptime(results_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
-                time_difference = run_datetime - current_datetime
-                if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
-                    run_id = results_dict['id']
-                    original_order_datetime_run_id_list.append((current_datetime, run_id))
-                    break
+    lower_limit_datetime = min_datetime - datetime.timedelta(seconds = allowed_seconds_deviation) 
+    upper_limit_datetime = max_datetime + datetime.timedelta(seconds = allowed_seconds_deviation)
+    results_dict_list = _get_results_dict_list_from_datetime_range(bc, (lower_limit_datetime, upper_limit_datetime))
+    original_order_datetime_run_id_list = []
+    for current_datetime in datetime_list:
+        for results_dict in results_dict_list:
+            run_datetime = datetime.datetime.strptime(results_dict['runtime'], BREADBOARD_DATETIME_FORMAT_STRING)
+            time_difference = run_datetime - current_datetime
+            if (abs(time_difference.total_seconds()) < allowed_seconds_deviation):
+                parameters_dict = _get_filtered_parameters_dict(results_dict, verbose = verbose)
+                original_order_datetime_run_id_list.append((current_datetime, parameters_dict))
+                break
+        else:
+            if allow_fails:
+                warnings.warn("Unable to find a matching run for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING), RuntimeWarning)
+                original_order_datetime_run_id_list.append((current_datetime, None))
             else:
-                if allow_fails:
-                    warnings.warn("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING), RuntimeWarning)
-                    original_order_datetime_run_id_list.append((current_datetime, None))
-                else:
-                    raise RuntimeError("Unable to find a matching run_id for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING))
-        return original_order_datetime_run_id_list
+                raise RuntimeError("Unable to find a matching run for " + current_datetime.strftime(BREADBOARD_DATETIME_FORMAT_STRING))
+    return original_order_datetime_run_id_list
 
 
 #TODO: Should really implement this at the level of breadboard python client, probably in the mixins, though then I'll have to get push access.

@@ -68,7 +68,7 @@ class TestImageWatchdog:
             shutil.rmtree(SAVEFOLDER_PATH)
 
     @staticmethod 
-    def test_label_images_with_run_ids():
+    def test_associate_images_with_run():
         WATCHFOLDER_CHECKSUM_STRING = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         SAVEFOLDER_CHECKSUM_STRING = "640a84f1e41aa2c95d0d63b226101c95ff9041ff1d2f8da4a62e5e979948baf5"
         NO_ID_CHECKSUM_STRING = "e43350b2c85f30b47c6c79e98f531d24d095306adf2ef81a1554ea2396cd669d"
@@ -76,7 +76,7 @@ class TestImageWatchdog:
         try:
             shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
             my_watchdog = TestImageWatchdog.init_watchdog()
-            my_watchdog.label_images_with_run_ids()
+            my_watchdog.associate_images_with_run()
             no_ids_path = os.path.join(SAVEFOLDER_PATH, 'no_id')
             watchfolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(WATCHFOLDER_PATH, extension = '.txt')
             savefolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(SAVEFOLDER_PATH, extension = '.txt')
