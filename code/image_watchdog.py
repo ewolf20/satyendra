@@ -111,6 +111,7 @@ class ImageWatchdog():
             try:
                 with open(parameters_pathname, 'w') as f:
                     f.write(json.dumps(self.parameters_dict))
+                break
             except OSError as e:
                 counter += 1 
                 if(counter >= SAVING_PATIENCE):
