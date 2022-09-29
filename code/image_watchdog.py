@@ -1,4 +1,5 @@
 import datetime
+import json
 import os 
 import shutil
 import time 
@@ -51,6 +52,7 @@ class ImageWatchdog():
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
         self.bc = breadboard_functions.load_breadboard_client()
         self.image_extension = image_extension
+        self.parameters_dict = {}
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
     """
@@ -91,13 +93,19 @@ class ImageWatchdog():
                     run_id = run_parameters["id"]
                     labelled_filename = str(run_id) + FILENAME_DELIMITER_CHAR + same_timestamp_filename 
                     new_pathname = os.path.join(self.savefolder_path, labelled_filename)
+                    self.parameters_dict[run_id] = run_parameters
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
                 #Use shutil instead of os.rename to allow copying across drives
                 shutil.move(original_pathname, new_pathname)
+        self.save_run_parameters()
         return labeled_image_bool
 
+    def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
+        parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
+        with open(parameters_pathname, 'w') as f:
+            f.write(json.dumps(self.parameters_dict))
 
     """
     Returns a list of the current images in the watchfolder.

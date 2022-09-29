@@ -32,13 +32,13 @@ def main():
     print("Running! Interrupt with Ctrl+C at your leisure.\n") 
     try:
         while True:
-            image_saved = my_watchdog.label_images_with_run_ids()
+            image_saved = my_watchdog.associate_images_with_run()
             if(image_saved):
                 print("Saved something at: ") 
                 print(datetime.datetime.now().strftime("%H-%M-%S"))
     except KeyboardInterrupt:
         print("Trying to save the last images...") 
-        my_watchdog.label_images_with_run_ids() 
+        my_watchdog.associate_images_with_run() 
         print("Success!") 
     finally:
         if(is_dryrun):
