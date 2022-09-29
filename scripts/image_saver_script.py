@@ -65,7 +65,7 @@ def prompt_for_savefolder_input():
         print("Only alphanumeric characters and _ allowed.\n")
         user_entered_name = input()
         if is_savefolder_name_forbidden(user_entered_name):
-            print("Can't use that name. Pick another.")
+            print("Can't use that name. Pick another.\n")
             input_is_ok = False
             continue
         print("Is the folder name " + user_entered_name + " ok?\n") 

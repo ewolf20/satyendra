@@ -109,8 +109,14 @@ class ImageWatchdog():
         counter = 0 
         while counter < SAVING_PATIENCE:
             try:
+                with open(parameters_pathname, 'r') as f:
+                    initial_dict = json.load(f)
+                appended_dict = initial_dict 
+                for key in self.parameters_dict:
+                    appended_dict[key] = self.parameters_dict[key]
                 with open(parameters_pathname, 'w') as f:
-                    f.write(json.dumps(self.parameters_dict))
+                    f.write(json.dumps(appended_dict))
+                self.parameters_dict = {}
                 break
             except OSError as e:
                 counter += 1 
