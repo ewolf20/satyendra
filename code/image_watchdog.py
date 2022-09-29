@@ -99,13 +99,22 @@ class ImageWatchdog():
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
                 #Use shutil instead of os.rename to allow copying across drives
                 shutil.move(original_pathname, new_pathname)
-        self.save_run_parameters()
+        if(labeled_image_bool):
+            self.save_run_parameters()
         return labeled_image_bool
 
     def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
         parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
-        with open(parameters_pathname, 'w') as f:
-            f.write(json.dumps(self.parameters_dict))
+        SAVING_PATIENCE = 3
+        counter = 0 
+        while counter < SAVING_PATIENCE:
+            try:
+                with open(parameters_pathname, 'w') as f:
+                    f.write(json.dumps(self.parameters_dict))
+            except OSError as e:
+                counter += 1 
+                if(counter >= SAVING_PATIENCE):
+                    raise e
 
     """
     Returns a list of the current images in the watchfolder.

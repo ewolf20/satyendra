@@ -38,6 +38,7 @@ def main():
     except KeyboardInterrupt:
         print("Trying to save the last images...") 
         my_watchdog.associate_images_with_run() 
+        my_watchdog.save_run_parameters()
         print("Success!") 
     finally:
         if(is_dryrun):
