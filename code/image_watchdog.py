@@ -109,8 +109,11 @@ class ImageWatchdog():
         counter = 0 
         while counter < SAVING_PATIENCE:
             try:
-                with open(parameters_pathname, 'r') as f:
-                    initial_dict = json.load(f)
+                if os.path.exists(parameters_pathname):
+                    with open(parameters_pathname, 'r') as f:
+                        initial_dict = json.load(f)
+                else:
+                    initial_dict = {}
                 appended_dict = initial_dict 
                 for key in self.parameters_dict:
                     appended_dict[key] = self.parameters_dict[key]
