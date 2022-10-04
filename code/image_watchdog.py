@@ -1,4 +1,5 @@
 import datetime
+import json
 import os 
 import shutil
 import time 
@@ -51,6 +52,7 @@ class ImageWatchdog():
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
         self.bc = breadboard_functions.load_breadboard_client()
         self.image_extension = image_extension
+        self.parameters_dict = {}
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
     """
@@ -66,7 +68,7 @@ class ImageWatchdog():
     delays in runs reaching the server.
     
     mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id."""
-    def label_images_with_run_ids(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True):
+    def associate_images_with_run(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True, verbose = True):
         image_filename_list = self._get_image_filenames_in_watchfolder() 
         valid_timestamps_list = []
         valid_datetimes_list = [] 
@@ -78,25 +80,51 @@ class ImageWatchdog():
             if(checked_current_timedelta.total_seconds() > labelling_waiting_period and not checked_datetime_string in valid_timestamps_list):
                 valid_timestamps_list.append(checked_datetime_string)
                 valid_datetimes_list.append(checked_datetime)
-        datetime_and_run_id_list = breadboard_functions.label_datetime_list_with_run_ids(self.bc, valid_datetimes_list, 
+        datetime_and_run_parameters_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(self.bc, valid_datetimes_list, 
                                                                             allowed_seconds_deviation = mismatch_tolerance, 
-                                                                            allow_fails = allow_missing_ids)
-        run_id_list = [f[1] for f in datetime_and_run_id_list]
-        for run_id, timestamp in zip(run_id_list, valid_timestamps_list):
+                                                                            allow_fails = allow_missing_ids, verbose = verbose)
+        run_parameters_list = [f[1] for f in datetime_and_run_parameters_list]
+        for run_parameters, timestamp in zip(run_parameters_list, valid_timestamps_list):
             labeled_image_bool = True
             same_timestamp_filename_list = [f for f in image_filename_list if timestamp in f]
             for same_timestamp_filename in same_timestamp_filename_list:
                 original_pathname = os.path.join(self.watchfolder_path, same_timestamp_filename)
-                if(not run_id is None):
+                if(not run_parameters is None):
+                    run_id = run_parameters["id"]
                     labelled_filename = str(run_id) + FILENAME_DELIMITER_CHAR + same_timestamp_filename 
                     new_pathname = os.path.join(self.savefolder_path, labelled_filename)
+                    self.parameters_dict[run_id] = run_parameters
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
                 #Use shutil instead of os.rename to allow copying across drives
                 shutil.move(original_pathname, new_pathname)
+        if(labeled_image_bool):
+            self.save_run_parameters()
         return labeled_image_bool
-                    
+
+    def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
+        parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
+        SAVING_PATIENCE = 3
+        counter = 0 
+        while counter < SAVING_PATIENCE:
+            try:
+                if os.path.exists(parameters_pathname):
+                    with open(parameters_pathname, 'r') as f:
+                        initial_dict = json.load(f)
+                else:
+                    initial_dict = {}
+                appended_dict = initial_dict 
+                for key in self.parameters_dict:
+                    appended_dict[key] = self.parameters_dict[key]
+                with open(parameters_pathname, 'w') as f:
+                    f.write(json.dumps(appended_dict))
+                self.parameters_dict = {}
+                break
+            except OSError as e:
+                counter += 1 
+                if(counter >= SAVING_PATIENCE):
+                    raise e
 
     """
     Returns a list of the current images in the watchfolder.
@@ -109,6 +137,31 @@ class ImageWatchdog():
                         if (os.path.isfile(os.path.join(self.watchfolder_path, f)) and self.image_extension in f)
                         and any([image_name in f for image_name in self.image_specification_list])]
         return images_list
+
+
+    """
+    Function for saving a run parameters json in legacy datasets for which it wasn't autosaved."""
+    @staticmethod 
+    def get_run_metadata(folder_path, image_extension_string = ".fits", dump_filename = "run_params_dump.json"):
+        bc = breadboard_functions.load_breadboard_client()
+        filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f] 
+        run_ids_list = [int(f.split(FILENAME_DELIMITER_CHAR)[0]) for f in filenames_list]
+        datetimes_list = [datetime.datetime.strptime(f.split(FILENAME_DELIMITER_CHAR)[1], DATETIME_FORMAT_STRING) for f in filenames_list]
+        min_datetime = min(datetimes_list) 
+        max_datetime = max(datetimes_list)
+        #This is O(n)
+        unique_run_ids_list = list(set(run_ids_list))
+        sorted_unique_run_ids_list = sorted(unique_run_ids_list)
+        params_dict_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, sorted_unique_run_ids_list, start_datetime = min_datetime, 
+                                                                                end_datetime = max_datetime, verbose = True)
+        run_parameters_dump_dict = {}
+        for run_id, params_dict in zip(sorted_unique_run_ids_list, params_dict_list):
+            run_parameters_dump_dict[run_id] = params_dict 
+        dump_pathname = os.path.join(folder_path, dump_filename)
+        with open(dump_pathname, 'w') as dump_file:
+            json.dump(run_parameters_dump_dict, dump_file)
+        
+        
 
     """
     Function for bringing legacy filenames into conformance with the standard established by watchdog going forward.
@@ -184,9 +237,9 @@ class ImageWatchdog():
                 if run_ids_absent:
                     #GET RUN IDS
                     bc = breadboard_functions.load_breadboard_client()
-                    datetime_and_run_id_tuple_list = breadboard_functions.label_datetime_list_with_run_ids(bc, filename_datetimes_list, 
+                    datetime_and_run_parameters_tuple_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(bc, filename_datetimes_list, 
                                                                                                             allowed_seconds_deviation = allowed_seconds_deviation)
-                    filename_run_ids = [f[1] for f in datetime_and_run_id_tuple_list]
+                    filename_run_ids = [f[1]['id'] for f in datetime_and_run_parameters_tuple_list]
                     for old_filename, run_id, filename_datetime, image_type_string in zip(filenames_list, filename_run_ids, filename_datetimes_list, 
                                                                         filename_image_type_strings_list):
                         new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string

@@ -1,5 +1,6 @@
 import datetime 
 import hashlib
+import json
 import os
 import shutil
 import sys
@@ -11,11 +12,13 @@ sys.path.insert(0, path_to_satyendra)
 
 from satyendra.code.image_watchdog import ImageWatchdog
 
-
-def check_sha_hash(my_bytes, checksum_string):
+def get_sha_hash(my_bytes):
     m = hashlib.sha256() 
     m.update(my_bytes) 
-    return m.hexdigest() == checksum_string
+    return m.hexdigest()
+
+def check_sha_hash(my_bytes, checksum_string):
+    return get_sha_hash(my_bytes) == checksum_string
 
 
 IMAGE_FILE_EXTENSION_STRING = '.fits'
@@ -50,6 +53,24 @@ class TestImageWatchdog:
             shutil.rmtree('resources/Side_Temp')
             shutil.rmtree('resources/Modern_Temp')
 
+
+    @staticmethod 
+    def test_get_run_metadata():
+        RUN_PARAMS_CHECKSUM_STRING = 'a4f6477ac461a29a817f9a895df30db6777e00a27237c3d22af72c65e5329c73'
+        try:
+            shutil.copytree('resources/Modern_Format_Filenames', 'resources/Modern_Temp') 
+            ImageWatchdog.get_run_metadata('resources/Modern_Temp')
+            DEFAULT_DUMP_FILENAME = "run_params_dump.json"
+            json_pathname = os.path.join('resources/Modern_Temp', DEFAULT_DUMP_FILENAME)
+            with open(json_pathname, 'r') as json_file:
+                my_dict = json.load(json_file)
+            json_string = json.dumps(my_dict) 
+            json_bytes = json_string.encode("ASCII")
+            json_sha_hash = get_sha_hash(json_bytes) 
+            assert json_sha_hash == RUN_PARAMS_CHECKSUM_STRING
+        finally:
+            shutil.rmtree('resources/Modern_Temp')
+
     @staticmethod 
     def init_watchdog():
             my_watchdog = ImageWatchdog(WATCHFOLDER_PATH, SAVEFOLDER_PATH, 
@@ -68,22 +89,28 @@ class TestImageWatchdog:
             shutil.rmtree(SAVEFOLDER_PATH)
 
     @staticmethod 
-    def test_label_images_with_run_ids():
+    def test_associate_images_with_run():
         WATCHFOLDER_CHECKSUM_STRING = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         SAVEFOLDER_CHECKSUM_STRING = "640a84f1e41aa2c95d0d63b226101c95ff9041ff1d2f8da4a62e5e979948baf5"
         NO_ID_CHECKSUM_STRING = "e43350b2c85f30b47c6c79e98f531d24d095306adf2ef81a1554ea2396cd669d"
-
+        RUN_PARAMS_CHECKSUM_STRING = "91f292071c153f43107e5ecd582d4d239515bd884a7fc6ad7147ec3df84f3ec3"
         try:
             shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
             my_watchdog = TestImageWatchdog.init_watchdog()
-            my_watchdog.label_images_with_run_ids()
+            my_watchdog.associate_images_with_run()
+            print(my_watchdog.parameters_dict)
             no_ids_path = os.path.join(SAVEFOLDER_PATH, 'no_id')
             watchfolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(WATCHFOLDER_PATH, extension = '.txt')
             savefolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(SAVEFOLDER_PATH, extension = '.txt')
             no_id_folder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(no_ids_path, extension = '.txt')
+            with open(os.path.join(SAVEFOLDER_PATH, "run_params_dump.json"), 'r') as f:
+                resulting_run_params = json.load(f)
+            run_params_string = json.dumps(resulting_run_params)
+            run_params_checksum = get_sha_hash(run_params_string.encode("ASCII"))
             assert watchfolder_checksum == WATCHFOLDER_CHECKSUM_STRING
             assert savefolder_checksum == SAVEFOLDER_CHECKSUM_STRING 
             assert no_id_folder_checksum == NO_ID_CHECKSUM_STRING
+            assert run_params_checksum == RUN_PARAMS_CHECKSUM_STRING
         finally:
             shutil.rmtree(WATCHFOLDER_PATH)
             shutil.rmtree(SAVEFOLDER_PATH)

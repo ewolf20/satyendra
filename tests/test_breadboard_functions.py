@@ -46,15 +46,8 @@ def test_get_results_dict_list_from_datetime_range():
     json_bytes = json.dumps(results_dict_list).encode("ASCII")
     assert check_sha_hash(json_bytes, CHECKSUM_STRING)
 
-def test_get_run_ids_from_datetime_range():
-    bc = breadboard_functions.load_breadboard_client() 
-    START_DATETIME = datetime.datetime(2022, 4, 6, 9, 56, 0)
-    END_DATETIME = datetime.datetime(2022, 4, 6, 9, 57, 0)
-    TARGET_RUN_IDS_LIST = [805384, 805383]
-    run_ids_list = breadboard_functions.get_run_ids_from_datetime_range(bc, START_DATETIME, END_DATETIME) 
-    assert TARGET_RUN_IDS_LIST == run_ids_list
 
-def test_label_datetime_list_with_run_ids():
+def get_run_parameter_dicts_from_datetimes():
     bc = breadboard_functions.load_breadboard_client()
     DATETIME_1 = datetime.datetime(2022, 4, 6, 9, 56, 19)
     DATETIME_2 = datetime.datetime(2022, 4, 6, 9, 56, 58)
@@ -63,23 +56,16 @@ def test_label_datetime_list_with_run_ids():
     RUN_ID_1 = 805383
     RUN_ID_2 = 805384
     RUN_ID_3 = 805734
-    WELL_FORMED_DATETIME_LIST = [DATETIME_1, DATETIME_2]
-    TARGET_WELL_FORMED_RESULT = [(DATETIME_1, RUN_ID_1), (DATETIME_2, RUN_ID_2)]
-    assert (breadboard_functions.label_datetime_list_with_run_ids(bc, WELL_FORMED_DATETIME_LIST, well_formed = True)
-     == TARGET_WELL_FORMED_RESULT)
-    WELL_FORMED_DUPLICATED_DATETIME_LIST = [DATETIME_1, DATETIME_2, DATETIME_2, DATETIME_1]
-    TARGET_WELL_FORMED_DUPLICATED_RESULT = [(DATETIME_1, RUN_ID_1), (DATETIME_2, RUN_ID_2), (DATETIME_2, RUN_ID_2), (DATETIME_1, RUN_ID_1)]
-    assert (breadboard_functions.label_datetime_list_with_run_ids(bc, WELL_FORMED_DUPLICATED_DATETIME_LIST, well_formed = True) ==
-     TARGET_WELL_FORMED_DUPLICATED_RESULT)
-    NORMAL_DATETIME_LIST = [DATETIME_1, DATETIME_3, DATETIME_2]
-    TARGET_NORMAL_RESULT = [(DATETIME_1, RUN_ID_1), (DATETIME_3, RUN_ID_3), (DATETIME_2, RUN_ID_2)]
-    assert (breadboard_functions.label_datetime_list_with_run_ids(bc, NORMAL_DATETIME_LIST, well_formed = False) ==
-     TARGET_NORMAL_RESULT)
-    NORMAL_DUPLICATED_DATETIME_LIST = [DATETIME_1, DATETIME_3, DATETIME_2, DATETIME_3, DATETIME_1]
-    TARGET_NORMAL_DUPLICATED_RESULT = [(DATETIME_1, RUN_ID_1), (DATETIME_3, RUN_ID_3), (DATETIME_2, RUN_ID_2), 
-                                        (DATETIME_3, RUN_ID_3), (DATETIME_1, RUN_ID_1)]
-    assert (breadboard_functions.label_datetime_list_with_run_ids(bc, NORMAL_DUPLICATED_DATETIME_LIST, well_formed = False) ==
-     TARGET_NORMAL_DUPLICATED_RESULT)
+    DATETIME_LIST = [DATETIME_1, DATETIME_3, DATETIME_2]
+    TARGET_ID_RESULT = [RUN_ID_1, RUN_ID_3, RUN_ID_2]
+    datetime_and_parameters_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(bc, DATETIME_LIST)
+    run_id_list = [x[1]['id'] for x in datetime_and_parameters_list]
+    assert run_id_list == TARGET_ID_RESULT
+    DUPLICATED_DATETIME_LIST = [DATETIME_1, DATETIME_3, DATETIME_2, DATETIME_3, DATETIME_1]
+    TARGET_DUPLICATED_ID_RESULT = [RUN_ID_1, RUN_ID_3, RUN_ID_2, RUN_ID_3, RUN_ID_1]
+    duplicated_datetime_and_parameters_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(bc, DUPLICATED_DATETIME_LIST)
+    duplicated_run_id_list = [x[1]['id'] for x in duplicated_datetime_and_parameters_list]
+    assert duplicated_run_id_list == TARGET_DUPLICATED_ID_RESULT
 
 
 def test_get_datetime_from_run_id():
