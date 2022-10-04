@@ -53,6 +53,24 @@ class TestImageWatchdog:
             shutil.rmtree('resources/Side_Temp')
             shutil.rmtree('resources/Modern_Temp')
 
+
+    @staticmethod 
+    def test_get_run_metadata():
+        RUN_PARAMS_CHECKSUM_STRING = 'a4f6477ac461a29a817f9a895df30db6777e00a27237c3d22af72c65e5329c73'
+        try:
+            shutil.copytree('resources/Modern_Format_Filenames', 'resources/Modern_Temp') 
+            ImageWatchdog.get_run_metadata('resources/Modern_Temp')
+            DEFAULT_DUMP_FILENAME = "run_params_dump.json"
+            json_pathname = os.path.join('resources/Modern_Temp', DEFAULT_DUMP_FILENAME)
+            with open(json_pathname, 'r') as json_file:
+                my_dict = json.load(json_file)
+            json_string = json.dumps(my_dict) 
+            json_bytes = json_string.encode("ASCII")
+            json_sha_hash = get_sha_hash(json_bytes) 
+            assert json_sha_hash == RUN_PARAMS_CHECKSUM_STRING
+        finally:
+            shutil.rmtree('resources/Modern_Temp')
+
     @staticmethod 
     def init_watchdog():
             my_watchdog = ImageWatchdog(WATCHFOLDER_PATH, SAVEFOLDER_PATH, 

@@ -138,6 +138,31 @@ class ImageWatchdog():
                         and any([image_name in f for image_name in self.image_specification_list])]
         return images_list
 
+
+    """
+    Function for saving a run parameters json in legacy datasets for which it wasn't autosaved."""
+    @staticmethod 
+    def get_run_metadata(folder_path, image_extension_string = ".fits", dump_filename = "run_params_dump.json"):
+        bc = breadboard_functions.load_breadboard_client()
+        filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f] 
+        run_ids_list = [int(f.split(FILENAME_DELIMITER_CHAR)[0]) for f in filenames_list]
+        datetimes_list = [datetime.datetime.strptime(f.split(FILENAME_DELIMITER_CHAR)[1], DATETIME_FORMAT_STRING) for f in filenames_list]
+        min_datetime = min(datetimes_list) 
+        max_datetime = max(datetimes_list)
+        #This is O(n)
+        unique_run_ids_list = list(set(run_ids_list))
+        sorted_unique_run_ids_list = sorted(unique_run_ids_list)
+        params_dict_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, sorted_unique_run_ids_list, start_datetime = min_datetime, 
+                                                                                end_datetime = max_datetime, verbose = True)
+        run_parameters_dump_dict = {}
+        for run_id, params_dict in zip(sorted_unique_run_ids_list, params_dict_list):
+            run_parameters_dump_dict[run_id] = params_dict 
+        dump_pathname = os.path.join(folder_path, dump_filename)
+        with open(dump_pathname, 'w') as dump_file:
+            json.dump(run_parameters_dump_dict, dump_file)
+        
+        
+
     """
     Function for bringing legacy filenames into conformance with the standard established by watchdog going forward.
     Given a folder, runs through a list of legacy filename types and recasts the filenames in the folder into the standard
