@@ -103,6 +103,19 @@ def initialize_savefolder(saving_location_root_pathname, user_save_label, is_dry
             savefolder_pathname = None
     return savefolder_pathname 
 
+def initialize_savefolder_portal(saving_location_root_pathname, user_save_label, is_dryrun):
+    current_datetime = datetime.datetime.now() 
+    current_year = current_datetime.strftime("%Y")
+    current_year_month = current_datetime.strftime("%Y-%m")
+    current_year_month_day = current_datetime.strftime("%Y-%m-%d")
+    savefolder_pathname = os.path.join(saving_location_root_pathname, current_year, current_year_month, current_year_month_day, user_save_label)
+    #if(os.path.isdir(savefolder_pathname) and not is_dryrun):
+    #    print("Folder already exists. Type 'y' (no quotes) to use it anyway, or anything else to retry.\n")
+    #    user_response = input()
+    #    if not user_response == 'y':
+    #        savefolder_pathname = None
+    return savefolder_pathname 
+
 
 def nuke_savefolder(savefolder_pathname):
     for root, dirs, files in os.walk(savefolder_pathname):
