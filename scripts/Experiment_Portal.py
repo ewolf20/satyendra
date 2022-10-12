@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk
 from turtle import color
+from tkinter import filedialog
 import re
-import image_saver_script as saver
 import datetime
 import importlib.resources as pkg_resources
 import json
@@ -14,6 +14,7 @@ import warnings
 from threading import Thread
 import time
 
+import image_saver_script as saver
 
 path_to_file = os.path.dirname(os.path.abspath(__file__))
 path_to_satyendra = path_to_file + "/../../"
@@ -21,6 +22,9 @@ path_to_satyendra = path_to_file + "/../../"
 sys.path.insert(0, path_to_satyendra)
 
 from satyendra.code.image_watchdog import ImageWatchdog
+from BEC1_Analysis.scripts import imaging_resonance_processing as resonance_processor
+from BEC1_Analysis.scripts import rf_spect_processing as rf_processor
+
 
 IMAGE_EXTENSION = ".fits"
 
@@ -36,7 +40,7 @@ class BEC1_Portal():
         tab2 = ttk.Frame(tabControl)
         tab3 = ttk.Frame(tabControl)
   
-        tabControl.add(tab1, text ='Image Saver Control')
+        tabControl.add(tab1, text ='Image Saver')
         tabControl.add(tab2, text ='Imaging Resonance Processing')
         tabControl.add(tab3, text ='RF Spectroscopy')
         tabControl.pack(expand = 1, fill ="both")
@@ -77,11 +81,59 @@ class BEC1_Portal():
         self.add_bttn.place(x=520,y=76)
         self.add_bttn["state"] = DISABLED
  
-        # second tab 
+        # second tab: for image_resonance_processing.py
         ttk.Label(tab2, text ="BLAH").grid(column = 0, row = 0, padx = 30, pady = 30)
+        self.browse_bttn = Button(tab2, text="Browse", relief="raised",  width=20, command= self.browse_button)
+        self.browse_bttn.place(x=20,y=20)
+        self.image_processing_folder_path = ''
+
+        self.res_image_folder_entry = Entry(tab2, text="Resonance imaging folder name", width=55)
+        self.res_image_folder_entry.place(x = 20, y = 80)
+        self.res_image_folder_entry_label = Label(tab2, text="Resonance imaging folder: ").place(x=20, y = 55)
+
+        self.resonance_imaging_mode = 'TopAB' # set to this by default
+
+        self.side_lf_bttn = Button(tab2, text="Side LF", relief="raised",  width=7, command= self.side_lf)
+        self.side_lf_bttn.place(x=200,y=20)
+        self.side_lf_bttn["state"] = DISABLED
+
+        self.side_hf_bttn = Button(tab2, text="Side HF", relief="raised",  width=7, command= self.side_hf)
+        self.side_hf_bttn.place(x=275,y=20)
+        self.side_hf_bttn["state"] = DISABLED
+
+        self.TopA_bttn = Button(tab2, text="Top A", relief="raised",  width=7, command= self.TopA)
+        self.TopA_bttn.place(x=350,y=20)
+        self.TopA_bttn["state"] = DISABLED
+
+        self.TopB_bttn = Button(tab2, text="Top B", relief="raised",  width=7, command= self.TopB)
+        self.TopB_bttn.place(x=425,y=20)
+        self.TopB_bttn["state"] = DISABLED
+
+        self.TopAB_bttn = Button(tab2, text="Top AB", relief="raised",  width=7, command= self.TopAB)
+        self.TopAB_bttn.place(x=500,y=20)
+        self.TopAB_bttn["state"] = DISABLED
+
+        self.analyze_bttn = Button(tab2, text="Analyze", relief="raised",  width=15, command= self.analyze_button)
+        self.analyze_bttn.place(x=400,y=78)
+        self.analyze_bttn["state"] = DISABLED
+
 
         # third tab
         ttk.Label(tab3, text ="BLAH").grid(column = 0, row = 0, padx = 30, pady = 30)
+        self.browse_rf_bttn = Button(tab3, text="Browse", relief="raised",  width=20, command= self.browse_rf_button)
+        self.browse_rf_bttn.place(x=20,y=20)
+        self.rf_processing_folder_path = ''
+
+        self.rf_spect_folder_entry = Entry(tab3, text="RF spectroscopy folder name", width=55)
+        self.rf_spect_folder_entry.place(x = 20, y = 80)
+        self.rf_spect_folder_entry_label = Label(tab3, text="RF spectroscopy folder: ").place(x=20, y = 55)
+
+        self.rf_analyze_bttn = Button(tab3, text="Analyze", relief="raised",  width=15, command= self.rf_analyze_button)
+        self.rf_analyze_bttn.place(x=400,y=78)
+        self.rf_analyze_bttn["state"] = DISABLED
+
+
+    # TAB 1 functions:
 
     def confirm_button(self):
         
@@ -113,7 +165,6 @@ class BEC1_Portal():
                 self.image_saver_status.insert(0,"Folder OK. Click 'Do it' to run.")
                 self.run_bttn["state"] = NORMAL
 
-
     def add_button(self):
         self.run_bttn["state"] = NORMAL
         self.add_bttn["state"] = DISABLED
@@ -121,8 +172,6 @@ class BEC1_Portal():
         # reset status box:
         self.image_saver_status.delete(0,'end')
         self.image_saver_status.insert(0,"Adding to existing folder. 'Do it' to run, or try different folder name.")
-
-
 
     def dryrun_toggle(self):
         if self.dryrun_bttn.config('relief')[-1] == 'sunken':
@@ -285,7 +334,6 @@ class BEC1_Portal():
                 self.image_saver_status.delete(0,'end')
                 self.image_saver_status.insert(0, status_string)
                 
-
             if self.acquisition_state == "STOPPED":   
                 # reset status box:
                 self.image_saver_status.delete(0,'end')
@@ -304,6 +352,142 @@ class BEC1_Portal():
                     saver.nuke_savefolder(savefolder_pathname)
                 break  
 
+    # TAB 2 functions:
+
+    def enable_resonance_imaging_mode_buttons(self):
+        # enable buttons:
+        self.side_lf_bttn["state"] = NORMAL
+        self.side_hf_bttn["state"] = NORMAL
+        self.TopA_bttn["state"] = NORMAL
+        self.TopB_bttn["state"] = NORMAL
+        self.TopAB_bttn["state"] = NORMAL
+        self.analyze_bttn["state"] = DISABLED
+        
+    def browse_button(self):
+        self.image_processing_folder_path = filedialog.askdirectory()
+        if self.image_processing_folder_path:
+            self.res_image_folder_entry.delete(0,'end')
+            self.res_image_folder_entry.insert(0, self.image_processing_folder_path)
+            # print(self.image_processing_folder_path)
+
+        self.enable_resonance_imaging_mode_buttons()
+
+    def side_lf(self):
+        if self.side_lf_bttn.config('relief')[-1] == 'sunken':
+            self.side_lf_bttn.config(relief="raised")
+            self.side_lf_bttn.config(fg='black')
+            
+            self.enable_resonance_imaging_mode_buttons()
+        else:
+            self.side_lf_bttn.config(relief="sunken")  
+            self.side_lf_bttn.config(fg='red')
+            self.resonance_imaging_mode = 'Side_lf'
+            # enable buttons:
+            self.side_hf_bttn["state"] = DISABLED
+            self.TopA_bttn["state"] = DISABLED
+            self.TopB_bttn["state"] = DISABLED
+            self.TopAB_bttn["state"] = DISABLED
+
+            self.analyze_bttn["state"] = NORMAL
+
+    def side_hf(self):
+        if self.side_hf_bttn.config('relief')[-1] == 'sunken':
+            self.side_hf_bttn.config(relief="raised")
+            self.side_hf_bttn.config(fg='black')
+            
+            self.enable_resonance_imaging_mode_buttons()
+        else:
+            self.side_hf_bttn.config(relief="sunken")  
+            self.side_hf_bttn.config(fg='red')
+            self.resonance_imaging_mode = 'Side_hf'
+            # enable buttons:
+            self.side_lf_bttn["state"] = DISABLED
+            self.TopA_bttn["state"] = DISABLED
+            self.TopB_bttn["state"] = DISABLED
+            self.TopAB_bttn["state"] = DISABLED
+
+            self.analyze_bttn["state"] = NORMAL
+
+    def TopA(self):
+        if self.TopA_bttn.config('relief')[-1] == 'sunken':
+            self.TopA_bttn.config(relief="raised")
+            self.TopA_bttn.config(fg='black')
+            
+            self.enable_resonance_imaging_mode_buttons()
+        else:
+            self.TopA_bttn.config(relief="sunken")  
+            self.TopA_bttn.config(fg='red')
+            self.resonance_imaging_mode = 'TopA'
+            # enable buttons:
+            self.side_lf_bttn["state"] = DISABLED
+            self.side_hf_bttn["state"] = DISABLED
+            self.TopB_bttn["state"] = DISABLED
+            self.TopAB_bttn["state"] = DISABLED
+
+            self.analyze_bttn["state"] = NORMAL
+
+    def TopB(self):
+        if self.TopB_bttn.config('relief')[-1] == 'sunken':
+            self.TopB_bttn.config(relief="raised")
+            self.TopB_bttn.config(fg='black')
+            
+            self.enable_resonance_imaging_mode_buttons()
+        else:
+            self.TopB_bttn.config(relief="sunken")  
+            self.TopB_bttn.config(fg='red')
+            self.resonance_imaging_mode ='TopB'
+            # enable buttons:
+            self.side_hf_bttn["state"] = DISABLED
+            self.side_lf_bttn["state"] = DISABLED
+            self.TopA_bttn["state"] = DISABLED
+            self.TopAB_bttn["state"] = DISABLED
+
+            self.analyze_bttn["state"] = NORMAL
+
+    def TopAB(self):
+        if self.TopAB_bttn.config('relief')[-1] == 'sunken':
+            self.TopAB_bttn.config(relief="raised")
+            self.TopAB_bttn.config(fg='black')
+            
+            self.enable_resonance_imaging_mode_buttons()
+        else:
+            self.TopAB_bttn.config(relief="sunken")  
+            self.TopAB_bttn.config(fg='red')
+            self.resonance_imaging_mode = 'TopAB'
+            # enable buttons:
+            self.side_hf_bttn["state"] = DISABLED
+            self.TopA_bttn["state"] = DISABLED
+            self.TopB_bttn["state"] = DISABLED
+            self.side_lf_bttn["state"] = DISABLED
+
+            self.analyze_bttn["state"] = NORMAL
+
+    def analyze_button(self):
+        print(self.resonance_imaging_mode)
+
+        self.analyze_bttn["state"] = DISABLED
+
+        measurement_directory_path = self.image_processing_folder_path
+        imaging_mode_string = self.resonance_imaging_mode
+
+        # talk to resonance_processor
+        resonance_processor.main_portal(measurement_directory_path,imaging_mode_string)
+    
+    # TAB 3 functions:
+
+    def browse_rf_button(self):
+        self.rf_processing_folder_path = filedialog.askdirectory()
+        if self.rf_processing_folder_path:
+            self.rf_spect_folder_entry.delete(0,'end')
+            self.rf_spect_folder_entry.insert(0, self.rf_processing_folder_path)
+            # print(self.rf_processing_folder_path)
+
+            self.rf_analyze_bttn["state"] = NORMAL
+
+    def rf_analyze_button(self):        
+        rf_processor.main_portal(self.rf_processing_folder_path)
+        
+            
 
 def main():
     root = Tk()
