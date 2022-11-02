@@ -22,13 +22,31 @@ path_to_satyendra = path_to_file + "/../../"
 sys.path.insert(0, path_to_satyendra)
 
 from satyendra.code.image_watchdog import ImageWatchdog
-from BEC1_Analysis.scripts import imaging_resonance_processing as resonance_processor
-from BEC1_Analysis.scripts import rf_spect_processing as rf_processor
-
+from BEC1_Analysis.scripts import imaging_resonance_processing
+from BEC1_Analysis.scripts import rf_spect_processing
 
 IMAGE_EXTENSION = ".fits"
 
 SPECIAL_CHARACTERS = "!@#$%^&*()-+?_=,<>/"
+
+ALLOWED_RESONANCE_TYPES = ["12_AB", "12_BA",  "21_AB", "21_BA", 
+                         "13_AB", "13_BA", "31_AB", "31_BA", 
+                         "23_AB", "23_BA", "32_AB", "32_BA"]
+
+RF_DIRECTIONS = [
+    "1 to 2, Imaging 1 then 2",
+    "1 to 2, Imaging 2 then 1",
+    "2 to 1, Imaging 1 then 2",
+    "2 to 1, Imaging 2 then 1",
+    "1 to 3, Imaging 1 then 3",
+    "1 to 3, Imaging 3 then 1",
+    "3 to 1, Imaging 1 then 3",
+    "3 to 1, Imaging 3 then 1",
+    "2 to 3, Imaging 2 then 3",
+    "2 to 3, Imaging 3 then 2",
+    "3 to 2, Imaging 2 then 3",
+    "3 to 2, Imaging 3 then 2"
+]
 
 class BEC1_Portal():
     def __init__(self, master):
@@ -117,9 +135,7 @@ class BEC1_Portal():
         self.analyze_bttn.place(x=400,y=78)
         self.analyze_bttn["state"] = DISABLED
 
-
         # third tab
-        ttk.Label(tab3, text ="BLAH").grid(column = 0, row = 0, padx = 30, pady = 30)
         self.browse_rf_bttn = Button(tab3, text="Browse", relief="raised",  width=20, command= self.browse_rf_button)
         self.browse_rf_bttn.place(x=20,y=20)
         self.rf_processing_folder_path = ''
@@ -131,6 +147,27 @@ class BEC1_Portal():
         self.rf_analyze_bttn = Button(tab3, text="Analyze", relief="raised",  width=15, command= self.rf_analyze_button)
         self.rf_analyze_bttn.place(x=400,y=78)
         self.rf_analyze_bttn["state"] = DISABLED
+
+        self.RF_direction_label = Label(tab3, text="RF transfer: ").place(x=200, y=20)
+
+        self.RF_direction = StringVar()
+        self.RF_direction.set( "1 to 2, Imaging 1 then 2")
+        self.RF_directions_menu = OptionMenu(tab3, self.RF_direction, *RF_DIRECTIONS, command = self.RF_imaging_options)
+        self.RF_directions_menu.place(x = 270, y = 16)
+        self.rf_resonance_key = self.RF_direction.get()
+
+        self.Rabi_guess_var = StringVar()
+        self.RF_center_guess_var = StringVar()
+
+        self.Rabi_guess_label = Label(tab3, text= "Rabi frequency guess (kHz): ").place(x=450, y=20)
+        self.RF_center_guess_label = Label(tab3, text= "RF center guess (MHz): ").place(x=450, y=40)
+
+        self.Rabi_guess = Entry(tab3, textvariable = self.Rabi_guess_var, width=15).place(x=610,y=20)
+        self.RF_center_guess = Entry(tab3, textvariable = self.RF_center_guess_var, width=15).place(x=610,y=40)
+
+        self.rf_analyze_with_guess_bttn = Button(tab3, text="Analyze with guess", relief="raised",  width=15, command= self.rf_analyze_with_guess_button)
+        self.rf_analyze_with_guess_bttn.place(x=550,y=78)
+        self.rf_analyze_with_guess_bttn["state"] = DISABLED
 
 
     # TAB 1 functions:
@@ -369,7 +406,6 @@ class BEC1_Portal():
             self.res_image_folder_entry.delete(0,'end')
             self.res_image_folder_entry.insert(0, self.image_processing_folder_path)
             # print(self.image_processing_folder_path)
-
         self.enable_resonance_imaging_mode_buttons()
 
     def side_lf(self):
@@ -387,7 +423,6 @@ class BEC1_Portal():
             self.TopA_bttn["state"] = DISABLED
             self.TopB_bttn["state"] = DISABLED
             self.TopAB_bttn["state"] = DISABLED
-
             self.analyze_bttn["state"] = NORMAL
 
     def side_hf(self):
@@ -463,15 +498,15 @@ class BEC1_Portal():
             self.analyze_bttn["state"] = NORMAL
 
     def analyze_button(self):
-        print(self.resonance_imaging_mode)
+        # print(self.resonance_imaging_mode)
 
         self.analyze_bttn["state"] = DISABLED
 
         measurement_directory_path = self.image_processing_folder_path
         imaging_mode_string = self.resonance_imaging_mode
 
-        # talk to resonance_processor
-        resonance_processor.main_portal(measurement_directory_path,imaging_mode_string)
+        # talk to imaging_resonance_processing
+        imaging_resonance_processing.main_after_inputs(measurement_directory_path,imaging_mode_string)
     
     # TAB 3 functions:
 
@@ -481,18 +516,47 @@ class BEC1_Portal():
             self.rf_spect_folder_entry.delete(0,'end')
             self.rf_spect_folder_entry.insert(0, self.rf_processing_folder_path)
             # print(self.rf_processing_folder_path)
-
             self.rf_analyze_bttn["state"] = NORMAL
+            self.rf_analyze_with_guess_bttn["state"] = NORMAL
 
     def rf_analyze_button(self):        
-        rf_processor.main_portal(self.rf_processing_folder_path)
-        
+        rf_spect_processing.main_after_inputs(self.rf_processing_folder_path, self.rf_resonance_key)
+
+    def rf_analyze_with_guess_button(self):        
+        # need add guesses here
+        Rabi_guess = self.Rabi_guess_var.get()
+        RF_center_guess = self.RF_center_guess_var.get()
+
+        print(Rabi_guess)
+        print(RF_center_guess)
+
+        if Rabi_guess == '':
+            Rabi_guess = None
+        if RF_center_guess == '':
+            RF_center_guess = None
+
+        rf_spect_processing.main_after_inputs(self.rf_processing_folder_path, self.rf_resonance_key, RF_center_guess, Rabi_guess)
+
+    def RF_imaging_options(self, event):
+        RF_direction = self.RF_direction.get()
+
+        for i in range(0,len(RF_DIRECTIONS)):
+            if RF_direction == RF_DIRECTIONS[i]:
+                self.rf_resonance_key = ALLOWED_RESONANCE_TYPES[i]
+
+        print(self.rf_resonance_key)
+
+    def RF_center_guess_set(self):
+        print('hello')
+
+    def Rabi_guess_set(self):
+        print('hello')
             
 
 def main():
     root = Tk()
     root.title('BEC1 Image Saver')
-    root.geometry("600x150")
+    root.geometry("725x150")
     BEC1_exp_portal = BEC1_Portal(root)
     root.mainloop()
 
