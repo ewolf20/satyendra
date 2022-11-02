@@ -22,8 +22,7 @@ path_to_satyendra = path_to_file + "/../../"
 sys.path.insert(0, path_to_satyendra)
 
 from satyendra.code.image_watchdog import ImageWatchdog
-from BEC1_Analysis.scripts import imaging_resonance_processing
-from BEC1_Analysis.scripts import rf_spect_processing
+from BEC1_Analysis.scripts import imaging_resonance_processing, rf_spect_processing, hybrid_top_processing
 
 IMAGE_EXTENSION = ".fits"
 
@@ -57,10 +56,12 @@ class BEC1_Portal():
         tab1 = ttk.Frame(tabControl)
         tab2 = ttk.Frame(tabControl)
         tab3 = ttk.Frame(tabControl)
+        tab4 = ttk.Frame(tabControl)
   
         tabControl.add(tab1, text ='Image Saver')
         tabControl.add(tab2, text ='Imaging Resonance Processing')
         tabControl.add(tab3, text ='RF Spectroscopy')
+        tabControl.add(tab4, text ='Hybrid Top Analysis')
         tabControl.pack(expand = 1, fill ="both")
   
         # first tab: for image_saver_script.py
@@ -170,8 +171,30 @@ class BEC1_Portal():
         self.rf_analyze_with_guess_bttn["state"] = DISABLED
 
 
-    # TAB 1 functions:
+        # fourth tab
+        self.browse_hybrid_bttn = Button(tab4, text="Browse", relief="raised",  width=20, command= self.browse_hybrid_button)
+        self.browse_hybrid_bttn.place(x=20,y=20)
+        self.hybrid_processing_folder_path = ''
 
+        self.hybrid_folder_entry = Entry(tab4, text="Hybrid data folder name", width=55)
+        self.hybrid_folder_entry.place(x = 20, y = 80)
+        self.hybrid_folder_entry_label = Label(tab3, text="Hybrid data folder: ").place(x=20, y = 55)
+
+        self.hybrid_analyze_bttn = Button(tab4, text="Analyze", relief="raised",  width=15, command= self.hybrid_analyze_button)
+        self.hybrid_analyze_bttn.place(x=400,y=78)
+        self.hybrid_analyze_bttn["state"] = DISABLED
+
+        self.hybrid_imaging_mode = 'abs' # set to this by default other option is 'polrot'
+
+        self.abs_img_bttn = Button(tab4, text="Absorption", relief="raised",  width=10, command= self.abs_img)
+        self.abs_img_bttn.place(x=200,y=20)
+        self.abs_img_bttn["state"] = DISABLED
+
+        self.polrot_img_bttn = Button(tab4, text="Pol. rot.", relief="raised",  width=10, command= self.polrot_img)
+        self.polrot_img_bttn.place(x=300,y=20)
+        self.polrot_img_bttn["state"] = DISABLED
+
+    # TAB 1 functions:
     def confirm_button(self):
         
         self.folder_name = self.folder_name_entry.get()
@@ -327,7 +350,6 @@ class BEC1_Portal():
                 self.folder_name_entry_state_before = DISABLED
                 self.confirm_button_state_before = DISABLED
                 
-
                 self.run_bttn.config(relief="sunken")  
                 self.run_bttn.config(text='STOP')
                 self.run_bttn.config(fg='red')
@@ -379,18 +401,15 @@ class BEC1_Portal():
                 my_watchdog.associate_images_with_run() 
                 my_watchdog.save_run_parameters()
                 print("Success!") 
-
                 time.sleep(1)
                 # reset status box:
                 self.image_saver_status.delete(0,'end')
                 self.image_saver_status.insert(0,"Success!")
-
                 if (is_dryrun):
                     saver.nuke_savefolder(savefolder_pathname)
                 break  
 
     # TAB 2 functions:
-
     def enable_resonance_imaging_mode_buttons(self):
         # enable buttons:
         self.side_lf_bttn["state"] = NORMAL
@@ -406,7 +425,7 @@ class BEC1_Portal():
             self.res_image_folder_entry.delete(0,'end')
             self.res_image_folder_entry.insert(0, self.image_processing_folder_path)
             # print(self.image_processing_folder_path)
-        self.enable_resonance_imaging_mode_buttons()
+            self.enable_resonance_imaging_mode_buttons()
 
     def side_lf(self):
         if self.side_lf_bttn.config('relief')[-1] == 'sunken':
@@ -494,22 +513,17 @@ class BEC1_Portal():
             self.TopA_bttn["state"] = DISABLED
             self.TopB_bttn["state"] = DISABLED
             self.side_lf_bttn["state"] = DISABLED
-
             self.analyze_bttn["state"] = NORMAL
 
     def analyze_button(self):
         # print(self.resonance_imaging_mode)
-
         self.analyze_bttn["state"] = DISABLED
-
         measurement_directory_path = self.image_processing_folder_path
         imaging_mode_string = self.resonance_imaging_mode
-
         # talk to imaging_resonance_processing
         imaging_resonance_processing.main_after_inputs(measurement_directory_path,imaging_mode_string)
     
     # TAB 3 functions:
-
     def browse_rf_button(self):
         self.rf_processing_folder_path = filedialog.askdirectory()
         if self.rf_processing_folder_path:
@@ -534,24 +548,64 @@ class BEC1_Portal():
             Rabi_guess = None
         if RF_center_guess == '':
             RF_center_guess = None
-
         rf_spect_processing.main_after_inputs(self.rf_processing_folder_path, self.rf_resonance_key, RF_center_guess, Rabi_guess)
 
     def RF_imaging_options(self, event):
         RF_direction = self.RF_direction.get()
-
         for i in range(0,len(RF_DIRECTIONS)):
             if RF_direction == RF_DIRECTIONS[i]:
                 self.rf_resonance_key = ALLOWED_RESONANCE_TYPES[i]
 
         print(self.rf_resonance_key)
 
-    def RF_center_guess_set(self):
-        print('hello')
 
-    def Rabi_guess_set(self):
-        print('hello')
+    # TAB 4 functions:
+    def browse_hybrid_button(self):
+        self.hybrid_processing_folder_path = filedialog.askdirectory()
+        if self.hybrid_processing_folder_path:
+            self.hybrid_folder_entry.delete(0,'end')
+            self.hybrid_folder_entry.insert(0, self.hybrid_processing_folder_path)
+            self.abs_img_bttn["state"] = NORMAL
+            self.polrot_img_bttn["state"] = NORMAL
+
+    def hybrid_analyze_button(self):        
+        hybrid_top_processing.main_after_inputs(self.hybrid_processing_folder_path, self.hybrid_imaging_mode)
+
+    def abs_img(self):
+        if self.abs_img_bttn.config('relief')[-1] == 'sunken':
+            self.abs_img_bttn.config(relief="raised")
+            self.abs_img_bttn.config(fg='black')
             
+            self.abs_img_bttn["state"] = NORMAL
+            self.polrot_img_bttn["state"] = NORMAL
+            self.hybrid_analyze_bttn["state"] = DISABLED   
+        else:
+            self.abs_img_bttn.config(relief="sunken")  
+            self.abs_img_bttn.config(fg='red')
+            self.hybrid_imaging_mode = 'abs'
+            # enable buttons:
+            self.polrot_img_bttn["state"] = DISABLED
+            self.hybrid_analyze_bttn["state"] = NORMAL
+
+    def polrot_img(self):
+        if self.polrot_img_bttn.config('relief')[-1] == 'sunken':
+            self.polrot_img_bttn.config(relief="raised")
+            self.polrot_img_bttn.config(fg='black')
+            
+            self.polrot_img_bttn["state"] = NORMAL
+            self.abs_img_bttn["state"] = NORMAL
+            self.hybrid_analyze_bttn["state"] = DISABLED   
+        else:
+            self.polrot_img_bttn.config(relief="sunken")  
+            self.polrot_img_bttn.config(fg='red')
+            self.hybrid_imaging_mode = 'polrot'
+            # enable buttons:
+            self.abs_img_bttn["state"] = DISABLED
+            self.hybrid_analyze_bttn["state"] = NORMAL
+    
+    
+
+###################################################################### 
 
 def main():
     root = Tk()
