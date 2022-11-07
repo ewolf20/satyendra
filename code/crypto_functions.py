@@ -8,7 +8,7 @@ from cryptography.fernet import Fernet
 from .. import secrets as s
 
 #WARNING: Removing the word 'secret' from a filename will cause it to no longer be ignored by Git!!! 
-KEY_FILENAME = 'analysis_encryption_key_secret.bin'
+KEY_FILENAME = 'satyendra_encryption_key_secret.bin'
 
 EXPERIMENT_PARAMETERS_PLAINTEXT_FILENAME = 'experiment_parameters_secret.json'
 EXPERIMENT_PARAMETERS_ENCRYPTED_FILENAME = 'experiment_parameters_encrypted.bin'
