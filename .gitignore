@@ -129,9 +129,9 @@ dmypy.json
 .pyre/
 
 
-#Secret JSON files, e.g. API tokens
+#Secret files, e.g. API tokens
 
-*secret.json 
+*secret.*
 
 #Local JSON configuration, e.g. system paths to saving directories
 
