@@ -8,7 +8,7 @@ from astropy.io import fits
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from satyendra.code import breadboard_functions
+from satyendra.code import breadboard_functions, crypto_functions
 
 
 
@@ -52,6 +52,10 @@ class ImageWatchdog():
         self.breadboard_mismatch_tolerance = breadboard_mismatch_tolerance
         self.bc = breadboard_functions.load_breadboard_client()
         self.image_extension = image_extension
+        experiment_parameters_filename = os.path.join(self.savefolder_path, "experiment_parameters.json")
+        with open(experiment_parameters_filename, 'w') as experiment_parameters_file:
+            experiment_parameters = crypto_functions.get_plaintext_parameters()
+            json.dump(experiment_parameters, experiment_parameters_file)
         self.parameters_dict = {}
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
