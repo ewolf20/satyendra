@@ -151,21 +151,22 @@ class ImageWatchdog():
         filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f] 
         run_ids_list = [int(f.split(FILENAME_DELIMITER_CHAR)[0]) for f in filenames_list]
         datetimes_list = [datetime.datetime.strptime(f.split(FILENAME_DELIMITER_CHAR)[1], DATETIME_FORMAT_STRING) for f in filenames_list]
-        min_datetime = min(datetimes_list) 
-        max_datetime = max(datetimes_list)
-        #This is O(n)
-        unique_run_ids_list = list(set(run_ids_list))
-        sorted_unique_run_ids_list = sorted(unique_run_ids_list)
-        params_dict_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, sorted_unique_run_ids_list, start_datetime = min_datetime, 
-                                                                                end_datetime = max_datetime, verbose = True)
-        run_parameters_dump_dict = {}
-        for run_id, params_dict in zip(sorted_unique_run_ids_list, params_dict_list):
-            run_parameters_dump_dict[run_id] = params_dict 
-        dump_pathname = os.path.join(folder_path, dump_filename)
-        with open(dump_pathname, 'w') as dump_file:
-            json.dump(run_parameters_dump_dict, dump_file)
-        
-        
+        if(len(datetimes_list) == 0):
+            pass
+        else:
+            min_datetime = min(datetimes_list) 
+            max_datetime = max(datetimes_list)
+            #This is O(n)
+            unique_run_ids_list = list(set(run_ids_list))
+            sorted_unique_run_ids_list = sorted(unique_run_ids_list)
+            params_dict_list = breadboard_functions.get_run_parameter_dicts_from_ids(bc, sorted_unique_run_ids_list, start_datetime = min_datetime, 
+                                                                                    end_datetime = max_datetime, verbose = True)
+            run_parameters_dump_dict = {}
+            for run_id, params_dict in zip(sorted_unique_run_ids_list, params_dict_list):
+                run_parameters_dump_dict[run_id] = params_dict 
+            dump_pathname = os.path.join(folder_path, dump_filename)
+            with open(dump_pathname, 'w') as dump_file:
+                json.dump(run_parameters_dump_dict, dump_file)
 
     """
     Function for bringing legacy filenames into conformance with the standard established by watchdog going forward.
