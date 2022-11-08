@@ -176,7 +176,8 @@ class ImageWatchdog():
     or the maximally abridged datetimestring format (for which the imagename can still be deduced, since we only saved side images this way).
     Note that the method _will fail_ if two different datetime string formats are mixed."""
     @staticmethod 
-    def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None, allowed_seconds_deviation = 5):
+    def clean_filenames(folder_path, image_extension_string = '.fits', image_type_default = None, allowed_seconds_deviation = 5, 
+                        allow_fails = False):
         datetime_formats = ["%Y-%m-%d--%H-%M-%S", "%m-%d-%Y_%H_%M_%S"]
         filenames_list = [f.split('.')[0] for f in os.listdir(folder_path) if image_extension_string in f]
         for datetime_format in datetime_formats:
@@ -242,14 +243,29 @@ class ImageWatchdog():
                     #GET RUN IDS
                     bc = breadboard_functions.load_breadboard_client()
                     datetime_and_run_parameters_tuple_list = breadboard_functions.get_run_parameter_dicts_from_datetimes(bc, filename_datetimes_list, 
-                                                                                                            allowed_seconds_deviation = allowed_seconds_deviation)
-                    filename_run_ids = [f[1]['id'] for f in datetime_and_run_parameters_tuple_list]
+                                                                                                            allowed_seconds_deviation = allowed_seconds_deviation, 
+                                                                                                            allow_fails = allow_fails)
+                    filename_run_ids = [] 
+                    unmatched_present = False
+                    for f in datetime_and_run_parameters_tuple_list:
+                        run_parameters_dict = f[1]
+                        if run_parameters_dict is None:
+                            filename_run_ids.append(None) 
+                            unmatched_present = True
+                        else:
+                            filename_run_ids.append(run_parameters_dict["id"])
+                    if unmatched_present and not os.path.isdir(os.path.join(folder_path, "no_id")):
+                        os.mkdir(os.path.join(folder_path, "no_id"))
                     for old_filename, run_id, filename_datetime, image_type_string in zip(filenames_list, filename_run_ids, filename_datetimes_list, 
                                                                         filename_image_type_strings_list):
-                        new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
+                        if(run_id):
+                            new_filename_with_extension= FILENAME_DELIMITER_CHAR.join((str(run_id), filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
+                            new_pathname = os.path.join(folder_path, new_filename_with_extension)
+                        else:
+                            new_filename_with_extension = FILENAME_DELIMITER_CHAR.join(("unmatched", filename_datetime.strftime(DATETIME_FORMAT_STRING), image_type_string)) + image_extension_string
+                            new_pathname = os.path.join(folder_path, "no_id", new_filename_with_extension)
                         old_filename_with_extension = old_filename + image_extension_string
                         old_pathname = os.path.join(folder_path, old_filename_with_extension)
-                        new_pathname = os.path.join(folder_path, new_filename_with_extension)
                         os.rename(old_pathname, new_pathname)
                 else:
                     for old_filename, run_id_string, filename_datetime, image_type_string in zip(filenames_list, filename_run_id_strings_list, filename_datetimes_list,
