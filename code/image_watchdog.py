@@ -54,7 +54,7 @@ class ImageWatchdog():
         self.image_extension = image_extension
         experiment_parameters_filename = os.path.join(self.savefolder_path, "experiment_parameters.json")
         with open(experiment_parameters_filename, 'w') as experiment_parameters_file:
-            experiment_parameters = crypto_functions.get_plaintext_parameters()
+            experiment_parameters = crypto_functions.get_plaintext_experiment_parameters()
             json.dump(experiment_parameters, experiment_parameters_file)
         self.parameters_dict = {}
 
