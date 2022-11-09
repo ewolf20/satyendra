@@ -156,6 +156,8 @@ Returns:
 
 A list [run1params, run2params, ...] of the 'params' from the 'results' dict returned for each run by breadboard."""
 def get_run_parameter_dicts_from_ids(bc, run_id_list, start_datetime = None, end_datetime = None, verbose = False, allowed_seconds_deviation = 5):
+    if(len(run_id_list) == 0):
+        return []
     tagged_run_id_list = list(enumerate(run_id_list)) 
     sorted_tagged_run_id_list = sorted(tagged_run_id_list, key = lambda f: f[1], reverse = True) 
     if(not start_datetime):
