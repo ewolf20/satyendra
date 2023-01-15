@@ -57,6 +57,7 @@ class ImageWatchdog():
             experiment_parameters = crypto_functions.get_plaintext_experiment_parameters()
             json.dump(experiment_parameters, experiment_parameters_file)
         self.parameters_dict = {}
+        self.save_run_parameters()
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
     """
