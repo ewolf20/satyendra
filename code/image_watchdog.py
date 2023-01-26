@@ -89,6 +89,7 @@ class ImageWatchdog():
                                                                             allowed_seconds_deviation = mismatch_tolerance, 
                                                                             allow_fails = allow_missing_ids, verbose = verbose)
         run_parameters_list = [f[1] for f in datetime_and_run_parameters_list]
+        move_list = []
         for run_parameters, timestamp in zip(run_parameters_list, valid_timestamps_list):
             labeled_image_bool = True
             same_timestamp_filename_list = [f for f in image_filename_list if timestamp in f]
@@ -102,10 +103,14 @@ class ImageWatchdog():
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
-                #Use shutil instead of os.rename to allow copying across drives
-                shutil.move(original_pathname, new_pathname)
+                move_list.append((original_pathname, new_pathname))
+        #Save run parameters FIRST to avoid a race condition with live analysis...
         if(labeled_image_bool):
             self.save_run_parameters()
+        for pathname_tuple in move_list:
+            original_pathname, new_pathname = pathname_tuple
+            #Use shutil instead of os.rename to allow copying across drives
+            shutil.move(original_pathname, new_pathname)
         return labeled_image_bool
 
     def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
