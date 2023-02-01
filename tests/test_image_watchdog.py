@@ -76,7 +76,8 @@ class TestImageWatchdog:
     @staticmethod 
     def init_watchdog():
             my_watchdog = ImageWatchdog(WATCHFOLDER_PATH, SAVEFOLDER_PATH, 
-                                    IMAGE_SPEC_LIST, image_extension = '.txt')
+                                    IMAGE_SPEC_LIST, image_extension = '.txt', 
+                                    experiment_parameters_pathname = os.path.join("resources", "experiment_parameters_sample.json"))
             return my_watchdog
         
 
@@ -86,8 +87,8 @@ class TestImageWatchdog:
             shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
             my_watchdog = TestImageWatchdog.init_watchdog()
             filenames_in_savefolder = os.listdir(SAVEFOLDER_PATH)
-            assert "experiment_parameters.json" in filenames_in_savefolder 
             assert "run_params_dump.json" in filenames_in_savefolder
+            assert "experiment_parameters.json" in filenames_in_savefolder
             assert True 
         finally:
             shutil.rmtree(WATCHFOLDER_PATH)
