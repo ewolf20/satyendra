@@ -8,7 +8,7 @@ from astropy.io import fits
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from satyendra.code import breadboard_functions, crypto_functions
+from satyendra.code import breadboard_functions, loading_functions
 
 
 
@@ -40,7 +40,8 @@ class ImageWatchdog():
     Remark: No separator should be at the end of directory pathnames.
     
     """
-    def __init__(self, watchfolder_path, savefolder_path, image_specification_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits"):
+    def __init__(self, watchfolder_path, savefolder_path, image_specification_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits", 
+                experiment_parameters_pathname = None):
         self.image_specification_list = image_specification_list
         self.watchfolder_path = watchfolder_path
         self.savefolder_path = savefolder_path
@@ -54,7 +55,7 @@ class ImageWatchdog():
         self.image_extension = image_extension
         experiment_parameters_filename = os.path.join(self.savefolder_path, "experiment_parameters.json")
         with open(experiment_parameters_filename, 'w') as experiment_parameters_file:
-            experiment_parameters = crypto_functions.get_plaintext_experiment_parameters()
+            experiment_parameters = loading_functions.load_experiment_parameters_from_central_folder(experiment_parameters_pathname)
             json.dump(experiment_parameters, experiment_parameters_file)
         self.parameters_dict = {}
         self.save_run_parameters()

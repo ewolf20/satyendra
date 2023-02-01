@@ -5,6 +5,8 @@ import os
 import shutil
 import sys
 
+import matplotlib.pyplot as plt
+
 
 path_to_file = os.path.dirname(os.path.abspath(__file__))
 path_to_satyendra = path_to_file + "/../../"
@@ -82,7 +84,10 @@ class TestImageWatchdog:
     def test_init():
         try:
             shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
-            my_watchdog = TestImageWatchdog.init_watchdog() 
+            my_watchdog = TestImageWatchdog.init_watchdog()
+            filenames_in_savefolder = os.listdir(SAVEFOLDER_PATH)
+            assert "experiment_parameters.json" in filenames_in_savefolder 
+            assert "run_params_dump.json" in filenames_in_savefolder
             assert True 
         finally:
             shutil.rmtree(WATCHFOLDER_PATH)
