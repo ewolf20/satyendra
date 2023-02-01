@@ -1,5 +1,5 @@
 # Huan Q Bui, BEC1@MIT
-# Last updated: 4:05 pm, Jan 30, 2023
+# Last updated: 9:58 am, Feb 01, 2023
 import numpy as np
 import sys 
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ from satyendra.code import slack_bot
 from satyendra.code.ps2000_wrapper_blockmode_utils import Picoscope
 
 
-def main():
+def main(initial_trigger_level):
     # enable text to speech engine:
     engine = pyttsx3.init()
     voice = engine.getProperty('voices')
@@ -28,7 +28,11 @@ def main():
     # lock constants
     blockSize = 1000
     blockDuration = 0.005
-    triggerLevel = 2075
+
+    if len(initial_trigger_level) == 1: # if no argv found:
+        triggerLevel = 2000 # default value 
+    else:
+        triggerLevel = int(initial_trigger_level[1])
 
     initialization_counter = 0
     initialization_counter_MAX = 20
@@ -363,7 +367,7 @@ def main():
             print('Picoscope logging terminated by keyboard interrupt')
 
 if __name__ == "__main__":
-	main()
+	main(sys.argv)
 
 
     
