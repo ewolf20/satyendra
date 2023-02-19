@@ -23,6 +23,7 @@ class DS_Instruments_DDS:
         self.echo = echo 
         self.send_eol = DS_Instruments_DDS.DS_INSTRUMENTS_SEND_EOL
         self.reply_eol = DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL
+        self.confirm_throws_error = confirm_throws_error
         self.turnoff_at_exit = turnoff_at_exit
         self.revision_code = revision_code
 
@@ -51,7 +52,7 @@ class DS_Instruments_DDS:
             reply_name = self.get_name()
             if name != reply_name:
                 error_string = "The stipulated name was {0}, but the DDS set name was {1}".format(name, reply_name)
-                if confirm_throws_error:
+                if self.confirm_throws_error:
                     raise RuntimeError(error_string) 
                 else:
                     warnings.warn(error_string)
@@ -77,7 +78,7 @@ class DS_Instruments_DDS:
             reply_MHz = self.get_frequency_MHz() 
             if not abs(freq_in_MHz - reply_MHz) < 1e-6:
                 error_string = "The stipulated frequency was {0:.6f} MHz, but the DDS set frequency was {1:.6f} MHz.".format(freq_in_MHz, reply_MHz)
-                if confirm_throws_error:
+                if self.confirm_throws_error:
                     raise RuntimeError(error_string)
                 else:
                     warnings.warn(error_string)
@@ -113,7 +114,7 @@ class DS_Instruments_DDS:
             reply_power = self.get_power_dBm() 
             if not abs(power_val - reply_power) < 0.01:
                 error_string = "The stipulated power was {0:.2f} dBm, but the DDS set frequency was {1:.2f} dBm.".format(power_val, reply_power)
-                if confirm_throws_error:
+                if self.confirm_throws_error:
                     raise RuntimeError(error_string)
                 else:
                     warnings.warn(error_string)
@@ -124,7 +125,7 @@ class DS_Instruments_DDS:
         self.send(DS_INSTRUMENTS_OUTPUT_ON_STRING)
         if confirm and (not self.is_output_on()):
             error_string = "The DDS output was set to be on, but is off."
-            if confirm_throws_error:
+            if self.confirm_throws_error:
                 raise RuntimeError(error_string) 
             else:
                 warnings.warn(error_string)
@@ -135,7 +136,7 @@ class DS_Instruments_DDS:
         self.send(DS_INSTRUMENTS_OUTPUT_OFF_STRING)
         if confirm and self.is_output_on():
             error_string = "The DDS output was set to be off, but is on."
-            if confirm_throws_error:
+            if self.confirm_throws_error:
                 raise RuntimeError(error_string) 
             else:
                 warnings.warn(error_string)
