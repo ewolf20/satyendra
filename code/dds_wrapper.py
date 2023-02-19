@@ -76,8 +76,8 @@ class DS_Instruments_DDS:
         self.send(message_string)
         if confirm:
             reply_MHz = self.get_frequency_MHz() 
-            if not abs(freq_in_MHz - reply_MHz) < 1e-6:
-                error_string = "The stipulated frequency was {0:.6f} MHz, but the DDS set frequency was {1:.6f} MHz.".format(freq_in_MHz, reply_MHz)
+            if not abs(freq_in_MHz - reply_MHz) < 1e-4:
+                error_string = "The stipulated frequency was {0:.4f} MHz, but the DDS set frequency was {1:.4f} MHz.".format(freq_in_MHz, reply_MHz)
                 if self.confirm_throws_error:
                     raise RuntimeError(error_string)
                 else:
