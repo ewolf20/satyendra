@@ -65,7 +65,7 @@ def main(initial_trigger_level):
     updatePeak_avg_counter = 0
     updatePeak_avg_after = 10
     # peak threshold:
-    peakThreshold = 300
+    peakThreshold = 400
     # good window for booster peak:
     boosterLocMin = int(blockSize*(0.002/0.006))
     boosterLocMax = int(blockSize*(0.0023/0.006))
@@ -90,7 +90,7 @@ def main(initial_trigger_level):
     #instantiate a device with its specific serial number:
     my_picoscope = Picoscope(0, serial='JO247/1191', verbose=True)
     my_picoscope.setup_channel('A',channel_range_mv=10000)
-    my_picoscope.setup_channel('B',channel_range_mv=3000)
+    my_picoscope.setup_channel('B',channel_range_mv=5000)
     my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
     my_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
 
