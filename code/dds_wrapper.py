@@ -15,7 +15,8 @@ class DS_Instruments_DDS:
 
 
 
-    def __init__(self, com_port, echo = False, confirm_throws_error = False, turnoff_at_exit = False):
+    def __init__(self, com_port, echo = False, confirm_throws_error = False, turnoff_at_exit = False, 
+                revision_code = "legacy"):
         #Default port settings for DS instruments DDS
         port_settings = DS_Instruments_DDS.DS_INSTRUMENTS_PORT_SETTINGS
         self.serial_port = serial.Serial(com_port, **port_settings)
@@ -23,6 +24,7 @@ class DS_Instruments_DDS:
         self.send_eol = DS_Instruments_DDS.DS_INSTRUMENTS_SEND_EOL
         self.reply_eol = DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL
         self.turnoff_at_exit = turnoff_at_exit
+        self.revision_code = revision_code
 
 
     def __enter__(self):
@@ -85,13 +87,21 @@ class DS_Instruments_DDS:
         DS_INSTRUMENTS_FREQUENCY_CHECK_MSG = "FREQ:CW?"
         reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_FREQUENCY_CHECK_MSG, check_reply = True)
 
-        #Unused; documentation
-        DS_INSTRUMENTS_FREQUENCY_REPLY_FORMATTING = "{0:d}HZ\r\n"
 
-        reply_string = reply_bytes.decode("ASCII") 
-        reply_Hz_string = reply_string.split("HZ")[0] 
-        reply_Hz = float(reply_Hz_string) 
-        reply_MHz = reply_Hz / 1e6
+        if self.revision_code == "legacy":
+            DS_INSTRUMENTS_FREQUENCY_REPLY_FORMATTING = "{0:4.5f}MHZ\r\n"
+
+            reply_string = reply_bytes.decode("ASCII") 
+            reply_MHz_string = reply_string.split("MHZ")[0] 
+            reply_MHz = float(reply_MHz_string)
+        elif self.revision_code == "modern":
+            #Unused constant; documents formatting
+            DS_INSTRUMENTS_FREQUENCY_REPLY_FORMATTING = "{0:d}HZ\r\n"
+
+            reply_string = reply_bytes.decode("ASCII") 
+            reply_Hz_string = reply_string.split("HZ")[0] 
+            reply_Hz = float(reply_Hz_string) 
+            reply_MHz = reply_Hz / 1e6
         return reply_MHz
 
 
