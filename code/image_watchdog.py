@@ -120,28 +120,28 @@ class ImageWatchdog():
         temp_parameters_filename = ".".join([temp_parameters_file_basename, "json"]) 
         parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
         temp_parameters_pathname = os.path.join(self.savefolder_path, temp_parameters_filename)
+        if os.path.exists(parameters_pathname):
+            with open(parameters_pathname, 'r') as f:
+                initial_dict = json.load(f)
+        else:
+            initial_dict = {}
+        appended_dict = initial_dict 
+        for key in self.parameters_dict:
+            appended_dict[key] = self.parameters_dict[key]
+        with open(temp_parameters_pathname, 'w') as f:
+            f.write(json.dumps(appended_dict))
         SAVING_PATIENCE = 3
-        counter = 0 
+        counter = 0
         while counter < SAVING_PATIENCE:
             try:
-                if os.path.exists(parameters_pathname):
-                    with open(parameters_pathname, 'r') as f:
-                        initial_dict = json.load(f)
-                else:
-                    initial_dict = {}
-                appended_dict = initial_dict 
-                for key in self.parameters_dict:
-                    appended_dict[key] = self.parameters_dict[key]
-                with open(temp_parameters_pathname, 'w') as f:
-                    f.write(json.dumps(appended_dict))
-                self.parameters_dict = {}
-            except OSError as e:
-                counter += 1 
-                if(counter >= SAVING_PATIENCE):
-                    raise e
-            else:
-                os.replace(temp_parameters_pathname, parameters_pathname)
+                os.rename(temp_parameters_pathname, parameters_pathname)
                 break
+            except OSError as e:
+                if counter < SAVING_PATIENCE:
+                    counter += 1 
+                    time.sleep(0.1)
+                else:
+                    raise e 
 
     """
     Returns a list of the current images in the watchfolder.
