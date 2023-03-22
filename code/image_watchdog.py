@@ -115,7 +115,11 @@ class ImageWatchdog():
         return labeled_image_bool
 
     def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
+        parameters_file_basename = parameters_filename.split(".")[0] 
+        temp_parameters_file_basename = parameters_file_basename + "_TEMP"
+        temp_parameters_filename = ".".join([temp_parameters_file_basename, "json"]) 
         parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
+        temp_parameters_pathname = os.path.join(self.savefolder_path, temp_parameters_filename)
         SAVING_PATIENCE = 3
         counter = 0 
         while counter < SAVING_PATIENCE:
@@ -128,14 +132,16 @@ class ImageWatchdog():
                 appended_dict = initial_dict 
                 for key in self.parameters_dict:
                     appended_dict[key] = self.parameters_dict[key]
-                with open(parameters_pathname, 'w') as f:
+                with open(temp_parameters_pathname, 'w') as f:
                     f.write(json.dumps(appended_dict))
                 self.parameters_dict = {}
-                break
             except OSError as e:
                 counter += 1 
                 if(counter >= SAVING_PATIENCE):
                     raise e
+            else:
+                os.replace(temp_parameters_pathname, parameters_pathname)
+                break
 
     """
     Returns a list of the current images in the watchfolder.
