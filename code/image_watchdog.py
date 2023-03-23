@@ -15,6 +15,8 @@ from satyendra.code import breadboard_functions, loading_functions
 DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
 FILENAME_DELIMITER_CHAR = '_'
 
+TEMP_FILE_MARKER = "TEMP"
+
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
 class ImageWatchdog():
@@ -73,7 +75,9 @@ class ImageWatchdog():
     whose datetimes are less than this many seconds before the present. Workaround for 
     delays in runs reaching the server.
     
-    mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id."""
+    mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id.
+    
+    Note: A frequent use case is to use this with live analysis; accordingly, some hacks to prevent race conditions are in use."""
     def associate_images_with_run(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True, verbose = True):
         image_filename_list = self._get_image_filenames_in_watchfolder() 
         valid_timestamps_list = []
@@ -99,19 +103,25 @@ class ImageWatchdog():
                 if(not run_parameters is None):
                     run_id = run_parameters["id"]
                     labelled_filename = str(run_id) + FILENAME_DELIMITER_CHAR + same_timestamp_filename 
+                    labelled_temp_filename = labelled_filename + TEMP_FILE_MARKER
                     new_pathname = os.path.join(self.savefolder_path, labelled_filename)
+                    new_pathname_temp = os.path.join(self.savefolder_path, labelled_temp_filename)
                     self.parameters_dict[run_id] = run_parameters
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
+                    labelled_temp_filename = labelled_filename + TEMP_FILE_MARKER
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
-                move_list.append((original_pathname, new_pathname))
+                    new_pathname_temp = os.path.join(self.no_id_folder_path, labelled_temp_filename)
+                move_list.append((original_pathname, new_pathname, new_pathname_temp))
         #Save run parameters FIRST to avoid a race condition with live analysis...
         if(labeled_image_bool):
             self.save_run_parameters()
         for pathname_tuple in move_list:
-            original_pathname, new_pathname = pathname_tuple
+            original_pathname, new_pathname, new_pathname_temp = pathname_tuple
             #Use shutil instead of os.rename to allow copying across drives
-            shutil.move(original_pathname, new_pathname)
+            #Break down the move into a slow save into a temporary file, plus a quick rename once the saving is done
+            shutil.move(original_pathname, new_pathname_temp)
+            os.rename(new_pathname_temp, new_pathname)
         return labeled_image_bool
 
     def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
