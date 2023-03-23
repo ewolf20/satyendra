@@ -121,7 +121,7 @@ class ImageWatchdog():
             #Use shutil instead of os.rename to allow copying across drives
             #Break down the move into a slow save into a temporary file, plus a quick rename once the saving is done
             shutil.move(original_pathname, new_pathname_temp)
-            os.replace(new_pathname_temp, new_pathname)
+            os.rename(new_pathname_temp, new_pathname)
         return labeled_image_bool
 
     def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
