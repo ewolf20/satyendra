@@ -65,7 +65,7 @@ def main(initial_trigger_level):
     updatePeak_avg_counter = 0
     updatePeak_avg_after = 10
     # peak threshold:
-    peakThreshold = 400
+    peakThreshold = 600
     # good window for booster peak:
     boosterLocMin = int(blockSize*(0.002/0.006))
     boosterLocMax = int(blockSize*(0.0023/0.006))
