@@ -144,7 +144,7 @@ class ImageWatchdog():
         counter = 0
         while counter < SAVING_PATIENCE:
             try:
-                os.rename(temp_parameters_pathname, parameters_pathname)
+                os.replace(temp_parameters_pathname, parameters_pathname)
                 break
             except OSError as e:
                 if counter < SAVING_PATIENCE:
