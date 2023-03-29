@@ -1,7 +1,7 @@
 # Huan Q Bui
 # BEC1@MIT
 # First updated: Dec 2022
-# Last updated: Jan 29, 2023 @ 12:17 pm
+# Last updated: Jan 31, 2023 @ 04:06 pm
 
 import tkinter as tk
 from tkinter import *
@@ -2689,8 +2689,13 @@ class BEC1_Portal():
                                     self.current_measurement.add_to_live_analyses(DENSITIES[q], q)
                                     added_density_analysis_fns.append(DENSITIES[q].__name__)
                                 else:
-                                    self.current_measurement.add_to_live_analyses(analysis_functions.get_atom_densities_top_polrot, ('Density Top A (PR)', 'Density Top B (PR)'))
-                                    added_density_analysis_fns.append(analysis_functions.get_atom_densities_top_polrot.__name__)
+                                    if 'Box Exp' in q:
+                                        self.current_measurement.add_to_live_analyses(analysis_functions.get_hybrid_trap_densities_along_harmonic_axis, 
+                                                                                        ('positions_first', 'densities_first', 'positions_second', 'densities_second'))
+                                        added_density_analysis_fns.append(analysis_functions.get_hybrid_trap_densities_along_harmonic_axis.__name__)
+                                    else:
+                                        self.current_measurement.add_to_live_analyses(analysis_functions.get_atom_densities_top_polrot, ('Density Top A (PR)', 'Density Top B (PR)'))
+                                        added_density_analysis_fns.append(analysis_functions.get_atom_densities_top_polrot.__name__)
 
                     
                     print('Added density analysis functions:' )
@@ -2801,25 +2806,39 @@ class BEC1_Portal():
 
                 elif self.figure_plotting_info[f] and len(self.figure_plotting_info[f]) == 1: 
                     # two cases: plotting [image] or plot [density (z) vs z from box exp shots]
-                    # if this plot is to be populated with [image]:
                     q = self.figure_plotting_info[f][0] # this is a one-element list, so there's nothing in self.figure_plotting_info[1] doesn't exist
-                    img = self.current_measurement.get_analysis_value_from_runs(q)
-                    print(img.shape)
-                    # clear axis first:
-                    self.ax_list[f].cla()
-                    # redraw titles and labels:
-                    xlabel = 'X'
-                    ylabel = 'Y'
-                    title  = self.figure_plotting_info[f][0]
-                    self.ax_list[f].set_xlabel(xlabel)
-                    self.ax_list[f].set_ylabel(ylabel)
-                    self.ax_list[f].set_title(title)
+                    if q == 'Densities(z) Box Exp (PR)':
+                        data = self.current_measurement.get_analysis_value_from_runs(q)
+                        print(data.shape)
+                        # clear axis first:
+                        self.ax_list[f].cla()
+                        xlabel = 'Z'
+                        ylabel = 'Density along z'
+                        title = self.figure_plotting_info[f][0]
+                        self.ax_list[f].set_xlabel(xlabel)
+                        self.ax_list[f].set_ylabel(ylabel)
+                        self.ax_list[f].set_title(title)
 
-                    # plot the last image in img[]:
-                    self.ax_list[f].imshow(img[-1])
-                    #### code for setting up scrolling through shots
-                    self.tracker_list[f] = IndexTracker(self.ax_list[f], img, title)
-                    self.fig_live_analysis.canvas.mpl_connect('scroll_event', self.tracker_list[f].on_scroll)
+                    else:
+                        img = self.current_measurement.get_analysis_value_from_runs(q)
+                        print(img.shape)
+
+                        # clear axis first:
+                        self.ax_list[f].cla()
+                        # redraw titles and labels:
+                        xlabel = 'X'
+                        ylabel = 'Y'
+                        title  = self.figure_plotting_info[f][0]
+                        self.ax_list[f].set_xlabel(xlabel)
+                        self.ax_list[f].set_ylabel(ylabel)
+                        self.ax_list[f].set_title(title)
+
+                        # plot the last image in img[]:
+                        self.ax_list[f].imshow(img[-1])
+                        #### code for setting up scrolling through shots
+                        self.tracker_list[f] = IndexTracker(self.ax_list[f], img, title)
+                        self.fig_live_analysis.canvas.mpl_connect('scroll_event', self.tracker_list[f].on_scroll)
+
                     # re-draw canvas
                     self.canvas_live_analysis.draw_idle()                        
 
