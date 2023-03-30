@@ -33,7 +33,7 @@ def main():
     SLACK_SECS_BETWEEN_WARNINGS = 600 
 
     #instantiate a device with its specific serial number:
-    Na_picoscope = Picoscope(0, serial='JO247/0361', verbose=True)
+    Na_picoscope = Picoscope(1, serial='JO247/0361', verbose=True)
     Na_picoscope.setup_channel('A',channel_range_mv=500)
     Na_picoscope.setup_channel('B',channel_range_mv=10000)
     #Na_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)

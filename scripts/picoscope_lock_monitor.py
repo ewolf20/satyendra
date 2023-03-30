@@ -18,12 +18,16 @@ from satyendra.code.ps2000_wrapper_blockmode_utils import Picoscope
 
 
 def main(initial_trigger_level):
-    # enable text to speech engine:
-    engine = pyttsx3.init()
-    voice = engine.getProperty('voices')
-    engine.setProperty('voice', voice[1].id) # index = 0 for male and 1 for female
+    # enable text to speech: Zira
+    zira = pyttsx3.init()
+    voice_zira = zira.getProperty('voices')
+    zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+    # enable text to speech: David
+    david = pyttsx3.init()
+    voice_david = david.getProperty('voices')
+    david.setProperty('voice', voice_david[0].id) # index = 0 for male and 1 for female
     #Slack notification params:
-    SLACK_SECS_BETWEEN_WARNINGS = 600 
+    SLACK_SECS_BETWEEN_WARNINGS = 300 
 
     # lock constants
     blockSize = 1000
@@ -65,7 +69,7 @@ def main(initial_trigger_level):
     updatePeak_avg_counter = 0
     updatePeak_avg_after = 10
     # peak threshold:
-    peakThreshold = 600
+    peakThreshold = 1000
     # good window for booster peak:
     boosterLocMin = int(blockSize*(0.002/0.006))
     boosterLocMax = int(blockSize*(0.0023/0.006))
@@ -94,7 +98,14 @@ def main(initial_trigger_level):
     Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
     Li_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
 
-    with Li_picoscope:
+    # instantiate a device with its specific serial number: Na picoscope
+    Na_picoscope = Picoscope(1, serial='JO247/0361', verbose=True)
+    Na_picoscope.setup_channel('A',channel_range_mv=500)
+    Na_picoscope.setup_channel('B',channel_range_mv=10000)
+    Na_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
+
+    with Li_picoscope and Na_picoscope:
+        #### LI SCOPE ####
         Li_picoscope.run_block()
         buffers = Li_picoscope.get_block_traces()
         traces_value = [val for val in buffers.values()]
@@ -103,7 +114,7 @@ def main(initial_trigger_level):
         # time_data = np.linspace(0, 1, len(traces_value[0]))
         # initial shot
         plt.ion()
-        figure, ax = plt.subplots(figsize=(5,5))
+        figure_Li, ax = plt.subplots(figsize=(5,5))
         line1, = ax.plot(time_data, traces_value[0])
         line2, = ax.plot(time_data, traces_value[1]) 
         plt.xlabel('Time (s)')
@@ -111,11 +122,84 @@ def main(initial_trigger_level):
 
         # for getting peaks
         FP_array = np.array(traces_value[1])
-        FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = 100)
+        FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = peakThreshold)
         line3, = ax.plot(time_data[FP_peak_indices], FP_array[FP_peak_indices], 'x')
+
+        #### NA SCOPE ####
+        Na_picoscope.run_block()
+        buffers_Na = Na_picoscope.get_block_traces()
+        traces_value_Na = [val for val in buffers_Na.values()]
+
+        time_data_Na = np.linspace(0, blockDuration, num=blockSize)
+
+        plt.ion()
+        figure_Na, ax1 = plt.subplots(figsize=(5,5))
+        ax1.set_xlabel('Time (s)')
+        ax1.set_ylabel('Error signal (mV)', color = 'blue')
+        line1_Na, = ax1.plot(time_data_Na, traces_value_Na[0], color = 'blue')
+        ax1.set_ylim([-1000, 1000])
+        ax1.tick_params(axis='y', labelcolor='blue')
+        ax2 = ax1.twinx()
+        line2_Na, = ax2.plot(time_data_Na, traces_value_Na[1], color = 'red') 
+        ax2.set_xlabel('Time (s)')
+        ax2.set_ylabel('Output signal (mV) \n', color = 'red')
+        ax2.tick_params(axis='y', labelcolor='red')
+
+        figure_Na.tight_layout()
 
         try:
             while True:
+
+                #########################################################
+                ########## Na scope #####################################
+                #########################################################
+
+                Na_picoscope.run_block()
+                buffers_Na = Na_picoscope.get_block_traces()
+
+                traces_value_Na = [val for val in buffers_Na.values()]
+                time_data_Na = np.linspace(0, blockDuration, num=blockSize)
+                line1_Na.set_xdata(time_data_Na)
+                line1_Na.set_ydata(traces_value_Na[0])
+                line2_Na.set_xdata(time_data_Na)
+                line2_Na.set_ydata(traces_value_Na[1])
+
+                max_trace_0 = max(traces_value_Na[0])
+                max_trace_1 = max(traces_value_Na[1])
+                ylim = min(10000, max(2000,   1.2*max(max_trace_0, max_trace_1)))
+                ax1.set_ylim([-500, 500])
+                ax2.set_ylim([-int(ylim), int(ylim)])
+                
+                # update plot
+                figure_Na.canvas.draw()
+                figure_Na.canvas.flush_events()
+                time.sleep(0.1)
+
+                # now calculate averages:
+                mean_error_signal_avg = np.mean(traces_value_Na[0]) # this is the error signal
+                mean_output_signal_avg = np.mean(traces_value_Na[1]) # this is the output signal (aux)
+
+                # the lock LED turns RED if the error signal is above 0.33 V in magnitude, but ok can set to 69
+                # OR the output signal voltage is within 10% of max outputs, which is 10 V
+                if (np.abs(mean_error_signal_avg) > 69) or (np.abs(mean_output_signal_avg) > 9000 ):
+                    # triggering too soon, gotta trigger later
+                        msg = 'Guys, Sodium unlocked!'
+                        david.setProperty('voice', voice_david[0].id) # index = 0 for male and 1 for female
+                        david.say(msg)
+                        david.runAndWait()
+
+                        current_time = time.time()
+                        slack_unlock_status = True
+                        if current_time - last_slack_warned_time > SLACK_SECS_BETWEEN_WARNINGS:
+                            msg_string = "Guys, the Na laser unlocked!"
+                            my_bot.post_message(msg_string, mention_all = True)
+                            last_slack_warned_time = current_time
+                else:
+                    slack_unlock_status = False
+
+                #########################################################
+                ########## Li scope #####################################
+                #########################################################
 
                 Li_picoscope.run_block()
                 buffers = Li_picoscope.get_block_traces()
@@ -136,32 +220,27 @@ def main(initial_trigger_level):
 
                 ###############################
                 # update plot
-                figure.canvas.draw()
-                figure.canvas.flush_events()
+                figure_Li.canvas.draw()
+                figure_Li.canvas.flush_events()
                 time.sleep(0.1)
 
                 ###############################
-                # injection lock now:                   
-
                 # first, there should be exactly four peaks
                 if initialization_counter < initialization_counter_MAX:
                     if len(FP_peak_indices) == 4:
-                        # get info of the four peaks:
                         # store peak values
                         boosterPeak = int(FP_array[FP_peak_indices[0]])
                         slowerPeak  = int(FP_array[FP_peak_indices[1]])
                         repumpPeak  = int(FP_array[FP_peak_indices[2]])
                         MOTPeak     = int(FP_array[FP_peak_indices[3]])
+
                         # store peak locations
                         boosterLoc  = FP_peak_indices[0]
                         slowerLoc   = FP_peak_indices[1]
                         repumpLoc   = FP_peak_indices[2]
                         MOTLoc      = FP_peak_indices[3]
-                        ########## INITIALIZE #############:
-                        # compute, from the first few shots:
-                        # the average height of each peak
-                        # the average spacings between the peaks:
 
+                        ########## INITIALIZE #############:
                         if boosterLoc <= boosterLocMax and boosterLoc >= boosterLocMin:
                             # if booster in good location:
                             print('Initializing: ' + str(initialization_counter+1) + '/' + str(initialization_counter_MAX))
@@ -177,20 +256,20 @@ def main(initial_trigger_level):
                             initialization_counter += 1
                         else:
                             if boosterLoc >= boosterLocMax:
-                                # triggering too soon, gotta trigger later
                                 msg = 'Triggering too soon. Adjusting'
-                                engine.say(msg)
-                                engine.runAndWait()
+                                zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+                                zira.say(msg)
+                                zira.runAndWait()
                                 # do sth
                                 triggerLevel += 100
                                 Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
                                 print('Trigger level: ' + str(triggerLevel))
 
                             elif boosterLoc <= boosterLocMin:
-                                # triggering too late, gotta trigger earlier
                                 msg = 'Triggering too late. Adjusting'
-                                engine.say(msg)
-                                engine.runAndWait()
+                                zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+                                zira.say(msg)
+                                zira.runAndWait()
                                 # do sth
                                 triggerLevel -= 100
                                 Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
@@ -200,14 +279,12 @@ def main(initial_trigger_level):
                         # if dont see exactly four peaks...
                         if len(FP_peak_indices) >= 5:
                             msg = 'Bad trigger'
-                            engine.say(msg)
-                            engine.runAndWait()
+                            zira.say(msg)
+                            zira.runAndWait()
                         else:
                             msg = 'Not locked'
-                            engine.say(msg)
-                            engine.runAndWait()
-
-
+                            zira.say(msg)
+                            zira.runAndWait()
                 
                 else:
                     # find peaks based on location relative to booster now:
@@ -223,25 +300,20 @@ def main(initial_trigger_level):
                     MOTPeak_avg = int(MOTPeak_avg)
 
                     # now monitor logic
-                    # assuming that the first peak is the booster...
-                    # this might sound bad, but it is in fact a safe assumption because 
-                    # if the first peak is not the booster then the code will say that at least one of the lasers unlocked, then we can step in and see what's wrong 
-                    # and then happens only due to extreme changes in the lock status
-                    # anyway, assuming booster is the first peak, adjust the trigger level:
                     if boosterLoc >= boosterLocMax:
-                        # triggering too soon, gotta trigger later
                         msg = 'Triggering too soon. Adjusting'
-                        engine.say(msg)
-                        engine.runAndWait()
+                        zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+                        zira.say(msg)
+                        zira.runAndWait()
                         # do sth
                         triggerLevel += 25
                         Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
 
                     elif boosterLoc <= boosterLocMin:
-                        # triggering too late, gotta trigger earlier
                         msg = 'Triggering too late. Adjusting'
-                        engine.say(msg)
-                        engine.runAndWait()
+                        zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+                        zira.say(msg)
+                        zira.runAndWait()
                         # do sth
                         triggerLevel -= 25
                         Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
@@ -285,29 +357,29 @@ def main(initial_trigger_level):
                     # print status
                     if (printLockStatus_COUNTER > printLockStatus_after):                        
                         # print lock status
-                        print("Booster location: " + str(boosterLoc) + "/" + str(len(FP_array)))
-                        print('Trigger level:    ' + str(triggerLevel))
-                        print(" - - - - - - - - - - - - - -")
-                        print("Booster peak: " + str(boosterPeak))
-                        # slower
-                        print("Slower peak:  " + str(slowerPeak))
-                        # repump
-                        print("Repump peak:  " + str(repumpPeak))
-                        # MOT
-                        print("MOT peak:     " + str(MOTPeak))
-                        if (slowerLocked == lock_max_strikes):
-                            print("Slower unlocked!")
-                        if (repumpLocked == lock_max_strikes):
-                            print("Repump unlocked!")
-                        if (MOTLocked == lock_max_strikes):
-                            print("MOT unlocked!")
-                        print("----------------------------")
-                        print("boosterPeak_avg: " + str(boosterPeak_avg))
-                        print("slowerPeak_avg:  " + str(slowerPeak_avg))
-                        print("repumpPeak_avg:  " + str(repumpPeak_avg))
-                        print("MOTPeak_avg:     " + str(MOTPeak_avg))
-                        print("============================")
-                        # end of print lock status
+                        #print("Booster location: " + str(boosterLoc) + "/" + str(len(FP_array)))
+                        #print('Trigger level:    ' + str(triggerLevel))
+                        #print(" - - - - - - - - - - - - - -")
+                        #print("Booster peak: " + str(boosterPeak))
+                        ## slower
+                        #print("Slower peak:  " + str(slowerPeak))
+                        ## repump
+                        #print("Repump peak:  " + str(repumpPeak))
+                        ## MOT
+                        #print("MOT peak:     " + str(MOTPeak))
+                        #if (slowerLocked == lock_max_strikes):
+                        #    print("Slower unlocked!")
+                        #if (repumpLocked == lock_max_strikes):
+                        #    print("Repump unlocked!")
+                        #if (MOTLocked == lock_max_strikes):
+                        #    print("MOT unlocked!")
+                        #print("----------------------------")
+                        #print("boosterPeak_avg: " + str(boosterPeak_avg))
+                        #print("slowerPeak_avg:  " + str(slowerPeak_avg))
+                        #print("repumpPeak_avg:  " + str(repumpPeak_avg))
+                        #print("MOTPeak_avg:     " + str(MOTPeak_avg))
+                        #print("============================")
+                        ## end of print lock status
                         
                         printLockStatus_COUNTER = 0 # reset
                         slower_unlocked = (slowerLocked == lock_max_strikes)
@@ -322,8 +394,9 @@ def main(initial_trigger_level):
                             msg_list.append("mott")
                         if slower_unlocked or MOT_unlocked or repump_unlocked:
                             msg = ' '.join(msg_list)
-                            engine.say(msg)
-                            engine.runAndWait()
+                            zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+                            zira.say(msg)
+                            zira.runAndWait()
                             current_time = time.time()
                             slack_unlock_status = True
                             if current_time - last_slack_warned_time > SLACK_SECS_BETWEEN_WARNINGS:

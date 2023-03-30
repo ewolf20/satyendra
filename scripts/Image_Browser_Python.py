@@ -2796,7 +2796,6 @@ class BEC1_Portal():
                         print('incompatible data!')
                     self.canvas_live_analysis.draw_idle()
 
-
                 elif self.figure_plotting_info[f] and len(self.figure_plotting_info[f]) == 1: 
                     # two cases: plotting [image] or plot [density (z) vs z from box exp shots]
                     q = self.figure_plotting_info[f][0] # this is a one-element list, so there's nothing in self.figure_plotting_info[1] doesn't exist
