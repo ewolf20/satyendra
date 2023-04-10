@@ -45,6 +45,7 @@ sys.path.insert(0, path_to_satyendra)
 
 import image_saver_script as saver
 from satyendra.code.image_watchdog import ImageWatchdog
+from satyendra.code import loading_functions as satyendra_loading_functions
 from BEC1_Analysis.scripts import imaging_resonance_processing, rf_spect_processing, hybrid_top_processing
 from BEC1_Analysis.code import measurement, analysis_functions
 # m = measurement.Measurement(...)
@@ -2743,10 +2744,15 @@ class BEC1_Portal():
                         t.start()                  
 
     def live_analysis_act(self):
+        loop_counter = 0
         while self.analyze_live_bttn.config('relief')[-1] == 'sunken' and self.current_measurement:
+            #Refresh the parameters json
+            if loop_counter % 40 == 0:
+                parameters_json_pathname = os.path.join(self.current_measurement.measurement_directory_path, "run_params_dump.json")
+                satyendra_loading_functions.force_refresh_file(parameters_json_pathname)
             # udpate measurement
             self.current_measurement.update(update_runs = True, update_badshots = True, update_analyses = True, overwrite_existing_analysis = False, 
-                override_existing_badshots = False, ignore_badshots = True, catch_errors = False, print_progress = True)           
+                override_existing_badshots = False, ignore_badshots = True, catch_errors = True, print_progress = True)           
 
             # now print out data for each plot:
             for f in range(len(LIVE_FIGURES)): 
@@ -2755,34 +2761,20 @@ class BEC1_Portal():
                     x_var_name = self.figure_plotting_info[f][0]
                     y_var_name = self.figure_plotting_info[f][1]
 
-                    # first figure out if PR data exists:
-                    if 'PR' in x_var_name or 'PR' in y_var_name:
-                        counts_first  = self.current_measurement.get_analysis_value_from_runs('Counts Top A (PR)')
-                        counts_second = self.current_measurement.get_analysis_value_from_runs('Counts Top B (PR)')
-
                     # now sort out plotting data:
-                    if x_var_name in MEASURE_QUANTITIES:
-                        if 'PR' not in x_var_name:
-                            x_data = self.current_measurement.get_analysis_value_from_runs(x_var_name)
-                        else:
-                            if x_var_name == 'Counts Top A (PR)':
-                                x_data = counts_first
-                            elif x_var_name == 'Counts Top B (PR)':
-                                x_data = counts_second
+                    if not (x_var_name in MEASURE_QUANTITIES) and y_var_name in MEASURE_QUANTITIES:
+                        x_data, y_data = self.current_measurement.get_parameter_analysis_value_pair_from_runs(x_var_name, y_var_name)
+                    elif x_var_name in MEASURE_QUANTITIES and not y_var_name in MEASURE_QUANTITIES:
+                        y_data, x_data = self.current_measurement.get_parameter_analysis_value_pair_from_runs(y_var_name, x_var_name)
+                    elif x_var_name in MEASURE_QUANTITIES and y_var_name in MEASURE_QUANTITIES: 
+                        def no_err_run_filter(my_measurement, my_run):
+                            return (my_run.analysis_results[x_var_name] != measurement.Measurement.ANALYSIS_ERROR_INDICATOR_STRING and 
+                                    my_run.analysis_results[y_var_name] != measurement.Measurement.ANALYSIS_ERROR_INDICATOR_STRING)
+                        x_data = self.current_measurement.get_analysis_value_from_runs(x_var_name, run_filter = no_err_run_filter) 
+                        y_data = self.current_measurement.get_analysis_value_from_runs(y_var_name, run_filter = no_err_run_filter) 
                     else:
-                        x_data = self.current_measurement.get_parameter_value_from_runs(x_var_name)
-
-                    if y_var_name in MEASURE_QUANTITIES:
-                        if 'PR' not in y_var_name:
-                            y_data = self.current_measurement.get_analysis_value_from_runs(y_var_name)
-                        else:
-                            if y_var_name == 'Counts Top A (PR)':
-                                y_data = counts_first
-                            elif y_var_name == 'Counts Top B (PR)':
-                                y_data = counts_second
-                    else:
+                        x_data = self.current_measurement.get_parameter_value_from_runs(x_var_name) 
                         y_data = self.current_measurement.get_parameter_value_from_runs(y_var_name)
-
                     # now plot stuff:
                     # clear axis first:
                     self.ax_list[f].cla()
@@ -2843,6 +2835,7 @@ class BEC1_Portal():
                     self.canvas_live_analysis.draw_idle()                        
 
             self.refresh_live_analysis()
+            loop_counter += 1
             time.sleep(0.5)
 
     def top_double(self):

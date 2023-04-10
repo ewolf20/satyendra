@@ -43,7 +43,7 @@ class ImageWatchdog():
     
     """
     def __init__(self, watchfolder_path, savefolder_path, image_specification_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits", 
-                experiment_parameters_pathname = None):
+                experiment_parameters_pathname = None, parameters_filename = "run_params_dump.json"):
         self.image_specification_list = image_specification_list
         self.watchfolder_path = watchfolder_path
         self.savefolder_path = savefolder_path
@@ -59,7 +59,11 @@ class ImageWatchdog():
         with open(experiment_parameters_filename, 'w') as experiment_parameters_file:
             experiment_parameters = loading_functions.load_experiment_parameters_from_central_folder(experiment_parameters_pathname)
             json.dump(experiment_parameters, experiment_parameters_file)
+        self.parameters_pathname = os.path.join(savefolder_path, parameters_filename)
         self.parameters_dict = {}
+        if not os.path.exists(self.parameters_pathname):
+            with open(self.parameters_pathname, 'w') as f:
+                json.dump(self.parameters_dict, f)
         self.save_run_parameters()
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
@@ -124,34 +128,9 @@ class ImageWatchdog():
             os.rename(new_pathname_temp, new_pathname)
         return labeled_image_bool
 
-    def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
-        parameters_file_basename = parameters_filename.split(".")[0] 
-        temp_parameters_file_basename = parameters_file_basename + "_TEMP"
-        temp_parameters_filename = ".".join([temp_parameters_file_basename, "json"]) 
-        parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
-        temp_parameters_pathname = os.path.join(self.savefolder_path, temp_parameters_filename)
-        if os.path.exists(parameters_pathname):
-            with open(parameters_pathname, 'r') as f:
-                initial_dict = json.load(f)
-        else:
-            initial_dict = {}
-        appended_dict = initial_dict 
-        for key in self.parameters_dict:
-            appended_dict[key] = self.parameters_dict[key]
-        with open(temp_parameters_pathname, 'w') as f:
-            f.write(json.dumps(appended_dict))
-        SAVING_PATIENCE = 3
-        counter = 0
-        while counter < SAVING_PATIENCE:
-            try:
-                os.replace(temp_parameters_pathname, parameters_pathname)
-                break
-            except OSError as e:
-                if counter < SAVING_PATIENCE:
-                    counter += 1 
-                    time.sleep(0.1)
-                else:
-                    raise e 
+    def save_run_parameters(self):
+        loading_functions.update_json_file(self.parameters_pathname, self.parameters_dict, checkin_fail_policy = "replace") 
+        self.parameters_dict = {}
 
     """
     Returns a list of the current images in the watchfolder.
