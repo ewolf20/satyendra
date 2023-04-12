@@ -2633,7 +2633,8 @@ class BEC1_Portal():
                     self.current_measurement = measurement.Measurement(measurement_directory_path = self.folder_path_live_analysis, 
                                                                         hold_images_in_memory = False, 
                                                                         imaging_type = self.image_type,
-                                                                        run_parameters_verbose = True)
+                                                                        run_parameters_verbose = True, 
+                                                                        is_live = True)
                     # next, set ROI and norm box:
                     #Initialize norm box & roi
                     self.current_measurement.set_ROI(box_coordinates = [self.roi_X_min, 
