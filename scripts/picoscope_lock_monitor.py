@@ -1,9 +1,7 @@
 # Huan Q Bui, BEC1@MIT
-<<<<<<< HEAD
 # Last updated: 08:01 pm, Mar 30, 2023
-=======
-# Last updated: 9:58 am, Feb 01, 2023
->>>>>>> 1c7b939 (Initial commit with Na Laser locking rolled into monitor)
+
+
 import numpy as np
 import sys 
 import matplotlib.pyplot as plt
@@ -12,11 +10,10 @@ from scipy.signal import find_peaks
 import ctypes
 import pyttsx3 
 
-<<<<<<< HEAD
-=======
+
 # TODO: update trigger level automatically based on where boosterLoc is...
 
->>>>>>> 1c7b939 (Initial commit with Na Laser locking rolled into monitor)
+
 PATH_TO_REPOSITORIES_FOLDER = "C:/Users/BEC1Top/Repositories"
 sys.path.insert(0, PATH_TO_REPOSITORIES_FOLDER)
 
