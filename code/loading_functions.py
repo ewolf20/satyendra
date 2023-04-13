@@ -5,6 +5,8 @@ import json
 import os
 import random
 import shutil
+import subprocess
+import sys
 import time
 
 from .. import configs as c
@@ -52,10 +54,32 @@ def update_central_experiment_parameters(key, value, pathname = None):
 
 
 
-def force_refresh_file(file_pathname):
-    #Checking the file out is actually enough to force refresh
-    with CheckedOutFile(file_pathname, 'r', checkin_fail_policy = "discard") as f:
-        pass
+def force_refresh_file(file_pathname, patience = 3, sleep_time = 0.1):
+    ERRORS_TO_CATCH = (FileNotFoundError, OSError)
+    counter = 0
+    while True:
+        try:
+            _twiddle_file(file_pathname) 
+            break
+        except ERRORS_TO_CATCH as e:
+            counter += 1
+            if counter < patience:
+                raise e
+
+
+
+def _twiddle_file(file_pathname):
+    if sys.platform.startswith("win32"):
+        WINDOWS_OPEN_TIMEOUT = 0.1
+        try:
+            subprocess.run(["notepad", file_pathname], timeout = WINDOWS_OPEN_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            pass
+    elif sys.platform.startswith("darwin"):
+        subprocess.run(["open", "-a", "TextEdit", file_pathname])
+        subprocess.run(["killall", "TextEdit"])
+    else:
+        raise NotImplementedError("File refreshing not yet implemented for non-windows or Mac platforms.")
 
 
 def update_json_file(file_pathname, update_dict, checkin_fail_policy = "raise"):
