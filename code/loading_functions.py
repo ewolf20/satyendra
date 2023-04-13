@@ -64,11 +64,14 @@ def force_refresh_file(file_pathname, patience = 3, sleep_time = 0.1):
         except ERRORS_TO_CATCH as e:
             counter += 1
             if counter < patience:
+                time.sleep(sleep_time) 
+            else:
                 raise e
 
 
 
 def _twiddle_file(file_pathname):
+    #Black magic to open a file with a "legitimate" program that forces a refresh of its contents from the remote
     if sys.platform.startswith("win32"):
         WINDOWS_OPEN_TIMEOUT = 0.1
         try:
@@ -82,15 +85,26 @@ def _twiddle_file(file_pathname):
         raise NotImplementedError("File refreshing not yet implemented for non-windows or Mac platforms.")
 
 
-def update_json_file(file_pathname, update_dict, checkin_fail_policy = "raise"):
-    with CheckedOutFile(file_pathname, 'r+', checkin_fail_policy = checkin_fail_policy) as f:
-        initial_dict = json.load(f) 
-        f.seek(0) 
-        appended_dict = initial_dict 
-        for key in update_dict:
-            appended_dict[key] = update_dict[key] 
-        json.dump(appended_dict, f)
-        f.truncate()
+def update_json_file(file_pathname, update_dict, patience = 3, wait_time = 0.1):
+    ERRORS_TO_CATCH = (FileNotFoundError, OSError)
+    counter = 0
+    while True:
+        try:
+            with open(file_pathname, 'r+') as f:
+                initial_dict = json.load(f) 
+                f.seek(0) 
+                appended_dict = initial_dict 
+                for key in update_dict:
+                    appended_dict[key] = update_dict[key] 
+                json.dump(appended_dict, f)
+                f.truncate()
+            break 
+        except ERRORS_TO_CATCH as e:
+            counter += 1 
+            if counter < patience:
+                time.sleep(wait_time)
+            else:
+                raise e
 
 class CheckedOutFile(object):
     def __init__(self, file_path, method, checkout_patience = 3, wait_time = 0.1, 
