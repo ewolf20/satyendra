@@ -262,6 +262,9 @@ class BEC1_Portal():
         style.map('Treeview', background=[('selected','#7ABBFF')])
 
         # code for the figure
+
+        self.image_is_displayed = True
+
         self.fig = Figure(figsize=(9.5,10))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.tab1)
         self.canvas.get_tk_widget().place(x = 400, y = 5)
@@ -1295,7 +1298,7 @@ class BEC1_Portal():
                 if self.scan_bttn.config('relief')[-1] == 'sunken':
                     # if show new button is pressed then show new image:
                     if self.show_new_bttn.config('relief')[-1] == 'sunken':
-                        print('Scanning and showing new...')
+                        # print('Scanning and showing new...')
                         # take last element of new file list
                         # compare file name
                         # if different then display, else do nothing
@@ -1329,34 +1332,41 @@ class BEC1_Portal():
                                             self.selected_image_entry.delete(0,'end')
                                             self.selected_image_entry.insert(0,self.current_file_name)
                                             # now display image:
-                                            self.display_image()
+                                            if self.image_is_displayed: 
+                                                self.image_is_displayed = False
+                                                self.display_image()
                                             print(self.current_file_name)
                                             # next, show metadata:
-                                            # acquire run id
-                                            run_id = self.current_file_name.split('_')[0] 
-                                            # load run params from json file
-                                            run_parameters_path = self.folder_path + "/run_params_dump.json"
-                                            with open(run_parameters_path, 'r') as json_file:
-                                                run_parameters_dict = json.load(json_file)   
-                                            self.params_for_selected_file = run_parameters_dict[run_id] # all params
+                                            
+                                            
+                                            # # acquire run id
+                                            # run_id = self.current_file_name.split('_')[0] 
+                                            # # load run params from json file
+                                            # run_parameters_path = self.folder_path + "/run_params_dump.json"
+                                            # with open(run_parameters_path, 'r') as json_file:
+                                            #     run_parameters_dict = json.load(json_file)   
+                                            # self.params_for_selected_file = run_parameters_dict[run_id] # all params
 
-                                            for i in range(len(self.metadata_variables)):
-                                                self.metadata_values[i] = str(self.params_for_selected_file[self.metadata_variables[i]])
-                                            # first clear metadata table:
-                                            self.params_table.delete(*self.params_table.get_children())
-                                            # then repopulate it
-                                            for i in range(len(self.metadata_variables)):
-                                                param = str(self.metadata_variables[i])
-                                                value = str(self.metadata_values[i])    
-                                                # then repopulate
-                                                self.params_table.insert("","end",text = param, values = value)
+                                            # for i in range(len(self.metadata_variables)):
+                                            #     self.metadata_values[i] = str(self.params_for_selected_file[self.metadata_variables[i]])
+                                            # # first clear metadata table:
+                                            # self.params_table.delete(*self.params_table.get_children())
+                                            # # then repopulate it
+                                            # for i in range(len(self.metadata_variables)):
+                                            #     param = str(self.metadata_variables[i])
+                                            #     value = str(self.metadata_values[i])    
+                                            #     # then repopulate
+                                            #     self.params_table.insert("","end",text = param, values = value)
+
+
                                     #else: # if there is no file_names yet, then just display the last of file_names_new
                                 self.file_names = self.file_names_new
                                 self.files_fullpath = self.files_fullpath_new                 
 
                     else:
-                        print('Scanning but not showing new...')
+                        # print('Scanning but not showing new...')
                         self.refresh()
+                        time.sleep(0.5)
                     time.sleep(1) # 1 second rep rate should be good since sequences are much longer
                 else:
                     break 
@@ -1736,11 +1746,13 @@ class BEC1_Portal():
         [self.YMIN, self.YMAX] = self.ax.get_ylim()
 
         # first close
-        self.ax.cla()
+        self.ax.clear()
         self.fig.clf()
         plt.close(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.ax.invert_yaxis()
+        time.sleep(0.5)
+        print('Displaying image...')
 
         # then show image:
         frame_type = self.frame_type
@@ -1860,6 +1872,8 @@ class BEC1_Portal():
 
         # now display roi if there is one:
         self.display_roi()
+        # change display status to True to allow the next shot in queue
+        self.image_is_displayed = True
     
     def display_roi(self):
         if self.roi:
@@ -2795,7 +2809,6 @@ class BEC1_Portal():
                         # do something else
                         print('incompatible data!')
                     self.canvas_live_analysis.draw_idle()
-
 
                 elif self.figure_plotting_info[f] and len(self.figure_plotting_info[f]) == 1: 
                     # two cases: plotting [image] or plot [density (z) vs z from box exp shots]

@@ -87,16 +87,16 @@ def main(initial_trigger_level):
     # peak find window:
     peak_find_window = 35
 
-    #instantiate a device with its specific serial number:
-    my_picoscope = Picoscope(0, serial='JO247/1191', verbose=True)
-    my_picoscope.setup_channel('A',channel_range_mv=10000)
-    my_picoscope.setup_channel('B',channel_range_mv=5000)
-    my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
-    my_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
+    # instantiate a device with its specific serial number: Li picoscope
+    Li_picoscope = Picoscope(0, serial='JO247/1191', verbose=True)
+    Li_picoscope.setup_channel('A',channel_range_mv=10000)
+    Li_picoscope.setup_channel('B',channel_range_mv=5000)
+    Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+    Li_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
 
-    with my_picoscope:
-        my_picoscope.run_block()
-        buffers = my_picoscope.get_block_traces()
+    with Li_picoscope:
+        Li_picoscope.run_block()
+        buffers = Li_picoscope.get_block_traces()
         traces_value = [val for val in buffers.values()]
 
         time_data = np.linspace(0, blockDuration, num=blockSize)
@@ -117,8 +117,8 @@ def main(initial_trigger_level):
         try:
             while True:
 
-                my_picoscope.run_block()
-                buffers = my_picoscope.get_block_traces()
+                Li_picoscope.run_block()
+                buffers = Li_picoscope.get_block_traces()
 
                 traces_value = [val for val in buffers.values()]
                 time_data = np.linspace(0, blockDuration, num=blockSize)
@@ -183,7 +183,7 @@ def main(initial_trigger_level):
                                 engine.runAndWait()
                                 # do sth
                                 triggerLevel += 100
-                                my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+                                Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
                                 print('Trigger level: ' + str(triggerLevel))
 
                             elif boosterLoc <= boosterLocMin:
@@ -193,7 +193,7 @@ def main(initial_trigger_level):
                                 engine.runAndWait()
                                 # do sth
                                 triggerLevel -= 100
-                                my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+                                Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
                                 print('Trigger level: ' + str(triggerLevel))
                     
                     else:
@@ -235,7 +235,7 @@ def main(initial_trigger_level):
                         engine.runAndWait()
                         # do sth
                         triggerLevel += 25
-                        my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+                        Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
 
                     elif boosterLoc <= boosterLocMin:
                         # triggering too late, gotta trigger earlier
@@ -244,7 +244,7 @@ def main(initial_trigger_level):
                         engine.runAndWait()
                         # do sth
                         triggerLevel -= 25
-                        my_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+                        Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
 
                     # SLOWER
                     if (slowerPeak < quality*slowerPeak_avg):
