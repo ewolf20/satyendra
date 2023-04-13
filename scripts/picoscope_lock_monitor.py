@@ -1,5 +1,9 @@
 # Huan Q Bui, BEC1@MIT
+<<<<<<< HEAD
 # Last updated: 08:01 pm, Mar 30, 2023
+=======
+# Last updated: 9:58 am, Feb 01, 2023
+>>>>>>> 1c7b939 (Initial commit with Na Laser locking rolled into monitor)
 import numpy as np
 import sys 
 import matplotlib.pyplot as plt
@@ -8,6 +12,11 @@ from scipy.signal import find_peaks
 import ctypes
 import pyttsx3 
 
+<<<<<<< HEAD
+=======
+# TODO: update trigger level automatically based on where boosterLoc is...
+
+>>>>>>> 1c7b939 (Initial commit with Na Laser locking rolled into monitor)
 PATH_TO_REPOSITORIES_FOLDER = "C:/Users/BEC1Top/Repositories"
 sys.path.insert(0, PATH_TO_REPOSITORIES_FOLDER)
 
@@ -76,6 +85,10 @@ def main(initial_trigger_level):
     slowerPeak_avg_new = 0
     repumpPeak_avg_new = 0
     MOTPeak_avg_new = 0
+
+    # triggering issue:
+    triggering_issue_counter = 0
+    triggering_issue_max_strikes = 5 
 
     # setup slack bot:
     last_slack_warned_time = -np.inf
@@ -212,11 +225,13 @@ def main(initial_trigger_level):
                 line3.set_xdata(time_data[FP_peak_indices])
                 line3.set_ydata(FP_array[FP_peak_indices])
 
+                ###############################
                 # update plot
                 figure_Li.canvas.draw()
                 figure_Li.canvas.flush_events()
                 time.sleep(0.1)
 
+                ###############################
                 # first, there should be exactly four peaks
                 if initialization_counter < initialization_counter_MAX:
                     if len(FP_peak_indices) == 4:
