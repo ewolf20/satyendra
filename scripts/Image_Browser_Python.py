@@ -2748,7 +2748,7 @@ class BEC1_Portal():
         loop_counter = 0
         while self.analyze_live_bttn.config('relief')[-1] == 'sunken' and self.current_measurement:
             #Refresh the parameters json
-            if loop_counter % 40 == 0:
+            if loop_counter % 10 == 0:
                 parameters_json_pathname = os.path.join(self.current_measurement.measurement_directory_path, "run_params_dump.json")
                 satyendra_loading_functions.force_refresh_file(parameters_json_pathname)
             # udpate measurement
