@@ -262,6 +262,9 @@ class BEC1_Portal():
         style.map('Treeview', background=[('selected','#7ABBFF')])
 
         # code for the figure
+
+        self.image_is_displayed = True
+
         self.fig = Figure(figsize=(9.5,10))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.tab1)
         self.canvas.get_tk_widget().place(x = 400, y = 5)
@@ -1329,7 +1332,9 @@ class BEC1_Portal():
                                             self.selected_image_entry.delete(0,'end')
                                             self.selected_image_entry.insert(0,self.current_file_name)
                                             # now display image:
-                                            self.display_image()
+                                            if self.image_is_displayed: 
+                                                self.image_is_displayed = False
+                                                self.display_image()
                                             print(self.current_file_name)
                                             # next, show metadata:
                                             
@@ -1867,6 +1872,8 @@ class BEC1_Portal():
 
         # now display roi if there is one:
         self.display_roi()
+        # change display status to True to allow the next shot in queue
+        self.image_is_displayed = True
     
     def display_roi(self):
         if self.roi:
