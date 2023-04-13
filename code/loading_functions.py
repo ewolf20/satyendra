@@ -91,7 +91,7 @@ class CheckedOutFile(object):
             checkout_appendix = CheckedOutFile.generate_unique_checkout_appendix() 
         checked_out_file_path = self.file_path + checkout_appendix
         counter = 0
-        while counter < self.checkout_patience:
+        while True:
             try:
                 os.rename(self.file_path, checked_out_file_path)
             except OSError as e:
