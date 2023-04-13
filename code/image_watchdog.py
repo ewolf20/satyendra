@@ -129,7 +129,7 @@ class ImageWatchdog():
         return labeled_image_bool
 
     def save_run_parameters(self):
-        loading_functions.update_json_file(self.parameters_pathname, self.parameters_dict, checkin_fail_policy = "replace") 
+        loading_functions.update_json_file(self.parameters_pathname, self.parameters_dict) 
         self.parameters_dict = {}
 
     """
