@@ -16,16 +16,31 @@ from satyendra.code import loading_functions
 
 RESOURCE_DIR_PATH = "resources"
 
-
 def test_load_experiment_parameters_from_central_folder():
     sample_loaded_dict = loading_functions.load_experiment_parameters_from_central_folder(
-        os.path.join(RESOURCE_DIR_PATH, "experiment_parameters_sample.json")
+        pathname = os.path.join(RESOURCE_DIR_PATH, "experiment_parameters_sample.json")
     )
-    assert len(sample_loaded_dict) == 0
+    assert len(sample_loaded_dict) == 2
+    assert "Values" in sample_loaded_dict 
+    assert "Update_Times" in sample_loaded_dict
+    assert sample_loaded_dict["Values"]["foo"] == 0
     true_loaded_dict = loading_functions.load_experiment_parameters_from_central_folder() 
     assert len(true_loaded_dict) == 2 
     assert "Values" in true_loaded_dict 
     assert "Update_Times" in true_loaded_dict
+
+
+def test_update_central_experiment_parameters():
+    sample_parameters_pathname = os.path.join(RESOURCE_DIR_PATH, "experiment_parameters_sample.json")
+    sample_parameters_pathname_test_temp = sample_parameters_pathname + "TEST_TEMP" 
+    shutil.copy2(sample_parameters_pathname, sample_parameters_pathname_test_temp)
+    try:
+        loading_functions.update_central_experiment_parameters("bar", 1337, pathname = sample_parameters_pathname)
+        assert not sample_parameters_pathname + "TEMP" in os.listdir(RESOURCE_DIR_PATH)
+        loaded_dict = loading_functions.load_experiment_parameters_from_central_folder(pathname = sample_parameters_pathname)
+        assert loaded_dict["Values"]["bar"] == 1337
+    finally:
+        os.replace(sample_parameters_pathname_test_temp, sample_parameters_pathname)
 
 
 
