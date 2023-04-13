@@ -1,23 +1,55 @@
+import datetime
 import hashlib
 import importlib.resources as pkg_resources
 import json
 import os
 import random
+import shutil
 import time
 
 from .. import configs as c
 from . import image_watchdog
 
 
+CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
+
+
+def _get_central_experiment_parameters_pathname():
+    IMAGE_SAVER_CONFIG_FILENAME = "image_saver_config_local.json"
+    with pkg_resources.path(c, IMAGE_SAVER_CONFIG_FILENAME) as config_path:
+        with open(config_path, 'r') as config_file:
+            config_dict = json.load(config_file) 
+            pathname = config_dict["experiment_parameters_pathname"]
+            return pathname
+
+
 def load_experiment_parameters_from_central_folder(pathname = None):
     if pathname is None:
-        IMAGE_SAVER_CONFIG_FILENAME = "image_saver_config_local.json"
-        with pkg_resources.path(c, IMAGE_SAVER_CONFIG_FILENAME) as config_path:
-            with open(config_path, 'r') as config_file:
-                config_dict = json.load(config_file) 
-                pathname = config_dict["experiment_parameters_pathname"]
+        pathname = _get_central_experiment_parameters_pathname()
     with open(pathname, 'r') as experiment_parameters_file:
         return json.load(experiment_parameters_file)
+
+
+def update_central_experiment_parameters(key, value, pathname = None):
+    if pathname is None:
+        pathname = _get_central_experiment_parameters_pathname()
+    with open(pathname, 'r') as experiment_parameters_file:
+        parameters_dict = json.load(experiment_parameters_file)
+    parameters_dict_values = parameters_dict["Values"] 
+    parameters_dict_update_times = parameters_dict["Update_Times"]
+    parameters_dict_values[key] = value 
+    current_datetime = datetime.datetime.now() 
+    current_datetime_string = current_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING)
+    parameters_dict_update_times[key] = current_datetime_string 
+    #Create a temporary copy just in case something breaks in the load/write 
+    temp_pathname = pathname + "TEMP"
+    shutil.copy2(pathname, temp_pathname)
+    with open(pathname, 'w') as experiment_parameters_file:
+        json.dump(parameters_dict, experiment_parameters_file)
+    #Get rid of the temp
+    os.remove(temp_pathname)
+
+
 
 
 def force_refresh_file(file_pathname):
