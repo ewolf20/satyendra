@@ -35,7 +35,7 @@ class SlackBot():
                     ids_dict = json.load(json_ids_file) 
 
         from .. import configs as c
-        with pkg_resources.path(c, "slack_bot_config.json") as config_path:
+        with pkg_resources.path(c, "slack_bot_config_local.json") as config_path:
             with open(config_path) as json_config_file:
                 defaults_config_dict = json.load(json_config_file)
             
@@ -216,7 +216,7 @@ class SlackBot():
         bot.post_message("Hey there, {0}!".format(user_first_name))
 
     @staticmethod
-    def _bot_status_handler(bot, message):
+    def _status_handler(bot, message):
         bot.post_message("Bot running from {0} is doing A-Ok!".format(bot.context_name)) 
 
     @staticmethod
@@ -225,10 +225,10 @@ class SlackBot():
 
     @staticmethod
     def _no_match_handler(bot, message):
-        pass
+        bot.post_message("Sorry, I didn't parse any instruction there.")
 
-    DEFAULT_HANDLER_STRINGS = ["#GREET", "#BOT_STATUS", "#QUOTE"]
-    DEFAULT_HANDLER_FUNCS = [_greet_handler, _bot_status_handler, _quote_handler]
+    DEFAULT_HANDLER_STRINGS = ["#GREET", "#STATUS", "#QUOTE"]
+    DEFAULT_HANDLER_FUNCS = [_greet_handler, _status_handler, _quote_handler]
     DEFAULT_HANDLER_EXTRA_ARGS = [(), (), ()]
 
 
