@@ -5,6 +5,9 @@ import importlib.resources as pkg_resources
 import time
 import warnings
 
+import ssl 
+import certifi
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -40,7 +43,8 @@ class SlackBot():
                 defaults_config_dict = json.load(json_config_file)
             
 
-        self.client = WebClient(token = token)
+        ssl_context = ssl.create_default_context(cafile = certifi.where())
+        self.client = WebClient(token = token, ssl=ssl_context)
         if channel_name is None:
             channel_name = defaults_config_dict["bot_channel_name"]
         if channel_id is None:
