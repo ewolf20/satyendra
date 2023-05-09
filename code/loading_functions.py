@@ -53,6 +53,115 @@ def update_central_experiment_parameters(key, value, pathname = None):
 
 
 
+"""
+Convenience function for retroactively changing the experiment parameters in old datasets.
+
+Given a root folder, recursively search for subdirectories containing an experiment_parameters.json file. 
+When found, update this file to contain the specified key-value pair.
+
+WARNING: This function is capable of IRREVERSIBLY DESTROYING CRUCIAL INFORMATION. It is recommended to follow 
+all possible precautions, including:
+    *   Running with save_previous equal to True, then calling the below cleanup function after inspecting results.
+    *   Passing the lowest-possible root folder pathname that contains the runs of interest.
+    *   Wherever practical, explicitly specifying the directories to be updated rather than relying on date_range.
+    
+Parameters:
+
+root_folder_pathname: The root folder to be recursively searched for matching folders.
+
+key, value: The key-value pair to be added to the dict.
+
+save_previous: If True, then if key already exists in the dict, the previously-existing value will be saved under a 
+    modified key name, allowing reversion of changes if necessary.
+    
+date_range: A list [min_datetime, max_datetime]. If passed, then only directories which have a parent folder
+whose name is parsable as a date lying between the specified datetimes, inclusive, will have their experiment parameters modified.
+
+directory_spec_list: A list of strings. If passed, then only directories whose names appear in directory_spec_list (note: these 
+are base names) will be modified. 
+
+If both date_range and directory_spec_list are passed, then the intersection of their domains is used.
+    """
+
+RETROACTIVE_UPDATE_PREVIOUS_REPLACED_STRING = "Previous_Replaced_On"
+def retroactive_update_existing_experiment_parameters(root_folder_pathname, key, value, save_previous = True, 
+                                                date_range = None, directory_spec_list = None):
+    pathname_to_modify_list = _retroactive_update_directory_finder_helper(root_folder_pathname, date_range = date_range, 
+                                        directory_spec_list = directory_spec_list)
+    for pathname_to_modify in pathname_to_modify_list:
+        experiment_parameters_path = os.path.join(pathname_to_modify, "experiment_parameters.json")
+        with open(experiment_parameters_path, 'r') as json_file:
+            existing_dict = json.load(json_file)
+        existing_dict_values = existing_dict["Values"]
+        existing_dict_update_times = existing_dict["Update_Times"]
+        current_datetime = datetime.datetime.now()
+        if key in existing_dict_values and save_previous:
+            previous_key = "{0}_{1}_{2}".format(key, RETROACTIVE_UPDATE_PREVIOUS_REPLACED_STRING,
+                                 current_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING))
+            existing_dict_values[previous_key] = existing_dict_values[key] 
+            existing_dict_update_times[previous_key] = existing_dict_update_times[key]
+        existing_dict_values[key] = value 
+        existing_dict_update_times[key] = current_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING)
+        #Temporarily copy the file in case something goes wrong
+        temp_experiment_parameters_path = experiment_parameters_path + "TEMP"
+        shutil.copy2(experiment_parameters_path, temp_experiment_parameters_path)
+        with open(experiment_parameters_path, 'w') as json_file:
+            json.dump(existing_dict, json_file)
+        os.remove(temp_experiment_parameters_path)
+
+
+"""
+Convenience function which removes the previous entries stored by the above when save_previous is true.
+
+WARNING: Any deletions done by this function are COMPLETELY IRREVOCABLE at the level of this code. Be cautious. """
+def retroactive_update_existing_experiment_parameters_cleanup(root_folder_pathname, date_range = None, directory_spec_list = None):
+    pathname_to_modify_list = _retroactive_update_directory_finder_helper(root_folder_pathname, date_range = date_range, 
+                                                                directory_spec_list = directory_spec_list)
+    for pathname_to_modify in pathname_to_modify_list:
+        experiment_parameters_path = os.path.join(pathname_to_modify, "experiment_parameters.json")
+        with open(experiment_parameters_path, 'r') as json_file:
+            existing_dict = json.load(json_file) 
+        existing_dict_values = existing_dict["Values"] 
+        existing_dict_update_times = existing_dict["Update_Times"]
+        keys_to_pop = [key for key in existing_dict_values if RETROACTIVE_UPDATE_PREVIOUS_REPLACED_STRING in key]
+        for key in keys_to_pop:
+            existing_dict_values.pop(key) 
+            existing_dict_update_times.pop(key)
+        temp_experiment_parameters_path = experiment_parameters_path + "TEMP" 
+        shutil.copy2(experiment_parameters_path, temp_experiment_parameters_path)
+        with open(experiment_parameters_path, 'w') as json_file:
+            json.dump(existing_dict, json_file)
+        os.remove(temp_experiment_parameters_path)
+
+def _retroactive_update_directory_finder_helper(root_folder_pathname, date_range = None, directory_spec_list = None):
+    pathname_to_modify_list = []
+    for dirpath, dirnames, filenames in os.walk(root_folder_pathname):
+        if "experiment_parameters.json" in filenames:
+            if not directory_spec_list is None and not os.path.basename(dirpath) in directory_spec_list:
+                continue
+            if not date_range is None:
+                range_min, range_max = date_range
+                dir_parent_datetime = _get_folder_parent_date_helper(root_folder_pathname, dirpath)
+                if dir_parent_datetime is None or (dir_parent_datetime < range_min or dir_parent_datetime > range_max):
+                    continue 
+            pathname_to_modify_list.append(dirpath)
+    return pathname_to_modify_list
+
+def _get_folder_parent_date_helper(root_folder_pathname, dirpath):
+    RUN_FOLDER_NAME_DATETIME_FORMAT_STRING = "%Y-%m-%d"
+    current_dir_path = dirpath
+    parent_date = None
+    while parent_date is None and not current_dir_path == root_folder_pathname:
+        current_dir_name = os.path.basename(current_dir_path)
+        try:
+            parent_datetime = datetime.datetime.strptime(current_dir_name, RUN_FOLDER_NAME_DATETIME_FORMAT_STRING)
+        except ValueError:
+            current_dir_path = os.path.abspath(os.path.join(current_dir_path, os.path.pardir)) 
+        else:
+            return parent_datetime
+    return None
+
+
 
 def force_refresh_file(file_pathname, patience = 3, sleep_time = 0.1):
     ERRORS_TO_CATCH = (FileNotFoundError, OSError)
