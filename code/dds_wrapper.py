@@ -91,14 +91,12 @@ class DS_Instruments_DDS:
 
         if self.revision_code == "legacy":
             DS_INSTRUMENTS_FREQUENCY_REPLY_FORMATTING = "{0:4.5f}MHZ\r\n"
-
             reply_string = reply_bytes.decode("ASCII") 
             reply_MHz_string = reply_string.split("MHZ")[0] 
             reply_MHz = float(reply_MHz_string)
         elif self.revision_code == "modern":
             #Unused constant; documents formatting
             DS_INSTRUMENTS_FREQUENCY_REPLY_FORMATTING = "{0:d}HZ\r\n"
-
             reply_string = reply_bytes.decode("ASCII") 
             reply_Hz_string = reply_string.split("HZ")[0] 
             reply_Hz = float(reply_Hz_string) 
@@ -108,17 +106,34 @@ class DS_Instruments_DDS:
 
     def set_power_dBm(self, power_val, confirm = False):
         DS_INSTRUMENTS_POWER_SET_BASESTRING = "POWER {0:f}"
+        if not self.revision_code == "modern":
+            raise NotImplementedError("Setting calibrated power in dBm not supported for non-modern DDS boxes.")
         message_string = DS_INSTRUMENTS_POWER_SET_BASESTRING.format(power_val)
         self.send(message_string) 
         if confirm:
             reply_power = self.get_power_dBm() 
             if not abs(power_val - reply_power) < 0.01:
-                error_string = "The stipulated power was {0:.2f} dBm, but the DDS set frequency was {1:.2f} dBm.".format(power_val, reply_power)
+                error_string = "The stipulated power was {0:.2f} dBm, but the DDS set power was {1:.2f} dBm.".format(power_val, reply_power)
                 if self.confirm_throws_error:
                     raise RuntimeError(error_string)
                 else:
                     warnings.warn(error_string)
 
+
+    def set_attenuation_dB(self, att_val, confirm = False):
+        DS_INSTRUMENTS_ATTENUATION_SET_BASESTRING = "ATT {0:f}"
+        if not self.revision_code == "legacy":
+            raise NotImplementedError("Setting uncalibrated power attenuation is not supported for non-legacy DDS boxes")
+        message_string = DS_INSTRUMENTS_ATTENUATION_SET_BASESTRING.format(att_val)
+        self.send(message_string)
+        if confirm:
+            reply_attenuation = self.get_attenuation_dB()
+            if not abs(att_val - reply_attenuation) < 0.01:
+                error_string = "The stipulated attenuation was {0:.2f} dB, but the DDS set attenuation was {1:.2f} dB".format(att_val, reply_attenuation)
+                if self.confirm_throws_error:
+                    raise RuntimeError(error_string)
+                else:
+                    warnings.warn(error_string)
 
     def turn_output_on(self, confirm = False):
         DS_INSTRUMENTS_OUTPUT_ON_STRING = "OUTP:STAT ON"
@@ -162,6 +177,8 @@ class DS_Instruments_DDS:
 
 
     def get_power_dBm(self):
+        if not self.revision_code == "modern":
+            raise NotImplementedError("Getting calibrated power in dBm not supported for non-modern DDS boxes.")
         DS_INSTRUMENTS_POWER_CHECK_MSG = "POWER?" 
         reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_POWER_CHECK_MSG, check_reply = True) 
 
@@ -172,6 +189,20 @@ class DS_Instruments_DDS:
         reply_dBm_string = reply_string.split("dBm")[0] 
         reply_dBm = float(reply_dBm_string) 
         return reply_dBm
+    
+    def get_attenuation_dB(self):
+        if not self.revision_code == "legacy":
+            raise NotImplementedError("Getting uncalibrated power attenuation in dB not supported for non-legacy DDS boxes.") 
+        DS_INSTRUMENTS_ATT_CHECK_MSG = "ATT?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_ATT_CHECK_MSG, check_reply = True) 
+
+        #Unused; documentation 
+        DS_INSTRUMENTS_ATT_REPLY_FORMATTING = "{0:+.1f}\r\n"
+
+        reply_string = reply_bytes.decode("ASCII")
+        reply_att_string = reply_string.split(DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL)[0]
+        reply_att_dB = float(reply_att_string)
+        return reply_att_dB
 
 
     def send(self, msg):
