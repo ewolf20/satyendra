@@ -104,7 +104,6 @@ class TestImageWatchdog:
             shutil.copytree(WATCHFOLDER_REF_PATH, WATCHFOLDER_PATH)
             my_watchdog = TestImageWatchdog.init_watchdog()
             my_watchdog.associate_images_with_run()
-            print(my_watchdog.parameters_dict)
             no_ids_path = os.path.join(SAVEFOLDER_PATH, 'no_id')
             watchfolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(WATCHFOLDER_PATH, extension = '.txt')
             savefolder_checksum = TestImageWatchdog.get_checksum_from_folder_filenames(SAVEFOLDER_PATH, extension = '.txt')

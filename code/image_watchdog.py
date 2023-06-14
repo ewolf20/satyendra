@@ -15,6 +15,8 @@ from satyendra.code import breadboard_functions, loading_functions
 DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
 FILENAME_DELIMITER_CHAR = '_'
 
+TEMP_FILE_MARKER = "TEMP"
+
 SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
 
 class ImageWatchdog():
@@ -41,7 +43,7 @@ class ImageWatchdog():
     
     """
     def __init__(self, watchfolder_path, savefolder_path, image_specification_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits", 
-                experiment_parameters_pathname = None):
+                experiment_parameters_pathname = None, parameters_filename = "run_params_dump.json"):
         self.image_specification_list = image_specification_list
         self.watchfolder_path = watchfolder_path
         self.savefolder_path = savefolder_path
@@ -57,7 +59,11 @@ class ImageWatchdog():
         with open(experiment_parameters_filename, 'w') as experiment_parameters_file:
             experiment_parameters = loading_functions.load_experiment_parameters_from_central_folder(experiment_parameters_pathname)
             json.dump(experiment_parameters, experiment_parameters_file)
+        self.parameters_pathname = os.path.join(savefolder_path, parameters_filename)
         self.parameters_dict = {}
+        if not os.path.exists(self.parameters_pathname):
+            with open(self.parameters_pathname, 'w') as f:
+                json.dump(self.parameters_dict, f)
         self.save_run_parameters()
 
     #TODO: Implement method for mass-matching if use case exists. Otherwise, takes ~5s to run
@@ -73,7 +79,9 @@ class ImageWatchdog():
     whose datetimes are less than this many seconds before the present. Workaround for 
     delays in runs reaching the server.
     
-    mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id."""
+    mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id.
+    
+    Note: A frequent use case is to use this with live analysis; accordingly, some hacks to prevent race conditions are in use."""
     def associate_images_with_run(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True, verbose = True):
         image_filename_list = self._get_image_filenames_in_watchfolder() 
         valid_timestamps_list = []
@@ -99,43 +107,30 @@ class ImageWatchdog():
                 if(not run_parameters is None):
                     run_id = run_parameters["id"]
                     labelled_filename = str(run_id) + FILENAME_DELIMITER_CHAR + same_timestamp_filename 
+                    labelled_temp_filename = labelled_filename + TEMP_FILE_MARKER
                     new_pathname = os.path.join(self.savefolder_path, labelled_filename)
+                    new_pathname_temp = os.path.join(self.savefolder_path, labelled_temp_filename)
                     self.parameters_dict[run_id] = run_parameters
                 else:
                     labelled_filename = "unmatched" + FILENAME_DELIMITER_CHAR + same_timestamp_filename
+                    labelled_temp_filename = labelled_filename + TEMP_FILE_MARKER
                     new_pathname = os.path.join(self.no_id_folder_path, labelled_filename)
-                move_list.append((original_pathname, new_pathname))
+                    new_pathname_temp = os.path.join(self.no_id_folder_path, labelled_temp_filename)
+                move_list.append((original_pathname, new_pathname, new_pathname_temp))
         #Save run parameters FIRST to avoid a race condition with live analysis...
         if(labeled_image_bool):
             self.save_run_parameters()
         for pathname_tuple in move_list:
-            original_pathname, new_pathname = pathname_tuple
+            original_pathname, new_pathname, new_pathname_temp = pathname_tuple
             #Use shutil instead of os.rename to allow copying across drives
-            shutil.move(original_pathname, new_pathname)
+            #Break down the move into a slow save into a temporary file, plus a quick rename once the saving is done
+            shutil.move(original_pathname, new_pathname_temp)
+            os.rename(new_pathname_temp, new_pathname)
         return labeled_image_bool
 
-    def save_run_parameters(self, parameters_filename = "run_params_dump.json"):
-        parameters_pathname = os.path.join(self.savefolder_path, parameters_filename)
-        SAVING_PATIENCE = 3
-        counter = 0 
-        while counter < SAVING_PATIENCE:
-            try:
-                if os.path.exists(parameters_pathname):
-                    with open(parameters_pathname, 'r') as f:
-                        initial_dict = json.load(f)
-                else:
-                    initial_dict = {}
-                appended_dict = initial_dict 
-                for key in self.parameters_dict:
-                    appended_dict[key] = self.parameters_dict[key]
-                with open(parameters_pathname, 'w') as f:
-                    f.write(json.dumps(appended_dict))
-                self.parameters_dict = {}
-                break
-            except OSError as e:
-                counter += 1 
-                if(counter >= SAVING_PATIENCE):
-                    raise e
+    def save_run_parameters(self):
+        loading_functions.update_json_file(self.parameters_pathname, self.parameters_dict) 
+        self.parameters_dict = {}
 
     """
     Returns a list of the current images in the watchfolder.

@@ -1,7 +1,7 @@
 # Huan Q Bui
 # BEC1@MIT
 # First updated: Dec 2022
-# Last updated: Jan 29, 2023 @ 12:17 pm
+# Last updated: Jan 31, 2023 @ 04:06 pm
 
 import tkinter as tk
 from tkinter import *
@@ -45,6 +45,7 @@ sys.path.insert(0, path_to_satyendra)
 
 import image_saver_script as saver
 from satyendra.code.image_watchdog import ImageWatchdog
+from satyendra.code import loading_functions as satyendra_loading_functions
 from BEC1_Analysis.scripts import imaging_resonance_processing, rf_spect_processing, hybrid_top_processing
 from BEC1_Analysis.code import measurement, analysis_functions
 # m = measurement.Measurement(...)
@@ -261,6 +262,9 @@ class BEC1_Portal():
         style.map('Treeview', background=[('selected','#7ABBFF')])
 
         # code for the figure
+
+        self.image_is_displayed = True
+
         self.fig = Figure(figsize=(9.5,10))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.tab1)
         self.canvas.get_tk_widget().place(x = 400, y = 5)
@@ -1294,7 +1298,7 @@ class BEC1_Portal():
                 if self.scan_bttn.config('relief')[-1] == 'sunken':
                     # if show new button is pressed then show new image:
                     if self.show_new_bttn.config('relief')[-1] == 'sunken':
-                        print('Scanning and showing new...')
+                        # print('Scanning and showing new...')
                         # take last element of new file list
                         # compare file name
                         # if different then display, else do nothing
@@ -1328,34 +1332,41 @@ class BEC1_Portal():
                                             self.selected_image_entry.delete(0,'end')
                                             self.selected_image_entry.insert(0,self.current_file_name)
                                             # now display image:
-                                            self.display_image()
+                                            if self.image_is_displayed: 
+                                                self.image_is_displayed = False
+                                                self.display_image()
                                             print(self.current_file_name)
                                             # next, show metadata:
-                                            # acquire run id
-                                            run_id = self.current_file_name.split('_')[0] 
-                                            # load run params from json file
-                                            run_parameters_path = self.folder_path + "/run_params_dump.json"
-                                            with open(run_parameters_path, 'r') as json_file:
-                                                run_parameters_dict = json.load(json_file)   
-                                            self.params_for_selected_file = run_parameters_dict[run_id] # all params
+                                            
+                                            
+                                            # # acquire run id
+                                            # run_id = self.current_file_name.split('_')[0] 
+                                            # # load run params from json file
+                                            # run_parameters_path = self.folder_path + "/run_params_dump.json"
+                                            # with open(run_parameters_path, 'r') as json_file:
+                                            #     run_parameters_dict = json.load(json_file)   
+                                            # self.params_for_selected_file = run_parameters_dict[run_id] # all params
 
-                                            for i in range(len(self.metadata_variables)):
-                                                self.metadata_values[i] = str(self.params_for_selected_file[self.metadata_variables[i]])
-                                            # first clear metadata table:
-                                            self.params_table.delete(*self.params_table.get_children())
-                                            # then repopulate it
-                                            for i in range(len(self.metadata_variables)):
-                                                param = str(self.metadata_variables[i])
-                                                value = str(self.metadata_values[i])    
-                                                # then repopulate
-                                                self.params_table.insert("","end",text = param, values = value)
+                                            # for i in range(len(self.metadata_variables)):
+                                            #     self.metadata_values[i] = str(self.params_for_selected_file[self.metadata_variables[i]])
+                                            # # first clear metadata table:
+                                            # self.params_table.delete(*self.params_table.get_children())
+                                            # # then repopulate it
+                                            # for i in range(len(self.metadata_variables)):
+                                            #     param = str(self.metadata_variables[i])
+                                            #     value = str(self.metadata_values[i])    
+                                            #     # then repopulate
+                                            #     self.params_table.insert("","end",text = param, values = value)
+
+
                                     #else: # if there is no file_names yet, then just display the last of file_names_new
                                 self.file_names = self.file_names_new
                                 self.files_fullpath = self.files_fullpath_new                 
 
                     else:
-                        print('Scanning but not showing new...')
+                        # print('Scanning but not showing new...')
                         self.refresh()
+                        time.sleep(0.5)
                     time.sleep(1) # 1 second rep rate should be good since sequences are much longer
                 else:
                     break 
@@ -1624,7 +1635,7 @@ class BEC1_Portal():
             self.display_image()
 
         toggle_selector.RS = RectangleSelector(self.ax, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -1735,11 +1746,13 @@ class BEC1_Portal():
         [self.YMIN, self.YMAX] = self.ax.get_ylim()
 
         # first close
-        self.ax.cla()
+        self.ax.clear()
         self.fig.clf()
         plt.close(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.ax.invert_yaxis()
+        time.sleep(0.5)
+        print('Displaying image...')
 
         # then show image:
         frame_type = self.frame_type
@@ -1859,6 +1872,8 @@ class BEC1_Portal():
 
         # now display roi if there is one:
         self.display_roi()
+        # change display status to True to allow the next shot in queue
+        self.image_is_displayed = True
     
     def display_roi(self):
         if self.roi:
@@ -2537,7 +2552,7 @@ class BEC1_Portal():
             self.display_image_live_analysis()
 
         toggle_selector.RS = RectangleSelector(self.ax_image_viewer_live_analysis, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -2567,7 +2582,7 @@ class BEC1_Portal():
             self.display_image_live_analysis()
 
         toggle_selector.RS = RectangleSelector(self.ax_image_viewer_live_analysis, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -2632,7 +2647,8 @@ class BEC1_Portal():
                     self.current_measurement = measurement.Measurement(measurement_directory_path = self.folder_path_live_analysis, 
                                                                         hold_images_in_memory = False, 
                                                                         imaging_type = self.image_type,
-                                                                        run_parameters_verbose = True)
+                                                                        run_parameters_verbose = True, 
+                                                                        is_live = True)
                     # next, set ROI and norm box:
                     #Initialize norm box & roi
                     self.current_measurement.set_ROI(box_coordinates = [self.roi_X_min, 
@@ -2689,8 +2705,13 @@ class BEC1_Portal():
                                     self.current_measurement.add_to_live_analyses(DENSITIES[q], q)
                                     added_density_analysis_fns.append(DENSITIES[q].__name__)
                                 else:
-                                    self.current_measurement.add_to_live_analyses(analysis_functions.get_atom_densities_top_polrot, ('Density Top A (PR)', 'Density Top B (PR)'))
-                                    added_density_analysis_fns.append(analysis_functions.get_atom_densities_top_polrot.__name__)
+                                    if 'Box Exp' in q:
+                                        self.current_measurement.add_to_live_analyses(analysis_functions.get_hybrid_trap_densities_along_harmonic_axis, 
+                                                                                        ('positions_first', 'densities_first', 'positions_second', 'densities_second'))
+                                        added_density_analysis_fns.append(analysis_functions.get_hybrid_trap_densities_along_harmonic_axis.__name__)
+                                    else:
+                                        self.current_measurement.add_to_live_analyses(analysis_functions.get_atom_densities_top_polrot, ('Density Top A (PR)', 'Density Top B (PR)'))
+                                        added_density_analysis_fns.append(analysis_functions.get_atom_densities_top_polrot.__name__)
 
                     
                     print('Added density analysis functions:' )
@@ -2738,10 +2759,15 @@ class BEC1_Portal():
                         t.start()                  
 
     def live_analysis_act(self):
+        loop_counter = 0
         while self.analyze_live_bttn.config('relief')[-1] == 'sunken' and self.current_measurement:
+            #Refresh the parameters json
+            if loop_counter % 10 == 0:
+                parameters_json_pathname = os.path.join(self.current_measurement.measurement_directory_path, "run_params_dump.json")
+                satyendra_loading_functions.force_refresh_file(parameters_json_pathname)
             # udpate measurement
             self.current_measurement.update(update_runs = True, update_badshots = True, update_analyses = True, overwrite_existing_analysis = False, 
-                override_existing_badshots = False, ignore_badshots = True, catch_errors = False, print_progress = True)           
+                override_existing_badshots = False, ignore_badshots = True, catch_errors = True, print_progress = True)           
 
             # now print out data for each plot:
             for f in range(len(LIVE_FIGURES)): 
@@ -2750,34 +2776,20 @@ class BEC1_Portal():
                     x_var_name = self.figure_plotting_info[f][0]
                     y_var_name = self.figure_plotting_info[f][1]
 
-                    # first figure out if PR data exists:
-                    if 'PR' in x_var_name or 'PR' in y_var_name:
-                        counts_first  = self.current_measurement.get_analysis_value_from_runs('Counts Top A (PR)')
-                        counts_second = self.current_measurement.get_analysis_value_from_runs('Counts Top B (PR)')
-
                     # now sort out plotting data:
-                    if x_var_name in MEASURE_QUANTITIES:
-                        if 'PR' not in x_var_name:
-                            x_data = self.current_measurement.get_analysis_value_from_runs(x_var_name)
-                        else:
-                            if x_var_name == 'Counts Top A (PR)':
-                                x_data = counts_first
-                            elif x_var_name == 'Counts Top B (PR)':
-                                x_data = counts_second
+                    if not (x_var_name in MEASURE_QUANTITIES) and y_var_name in MEASURE_QUANTITIES:
+                        x_data, y_data = self.current_measurement.get_parameter_analysis_value_pair_from_runs(x_var_name, y_var_name)
+                    elif x_var_name in MEASURE_QUANTITIES and not y_var_name in MEASURE_QUANTITIES:
+                        y_data, x_data = self.current_measurement.get_parameter_analysis_value_pair_from_runs(y_var_name, x_var_name)
+                    elif x_var_name in MEASURE_QUANTITIES and y_var_name in MEASURE_QUANTITIES: 
+                        def no_err_run_filter(my_measurement, my_run):
+                            return (my_run.analysis_results[x_var_name] != measurement.Measurement.ANALYSIS_ERROR_INDICATOR_STRING and 
+                                    my_run.analysis_results[y_var_name] != measurement.Measurement.ANALYSIS_ERROR_INDICATOR_STRING)
+                        x_data = self.current_measurement.get_analysis_value_from_runs(x_var_name, run_filter = no_err_run_filter) 
+                        y_data = self.current_measurement.get_analysis_value_from_runs(y_var_name, run_filter = no_err_run_filter) 
                     else:
-                        x_data = self.current_measurement.get_parameter_value_from_runs(x_var_name)
-
-                    if y_var_name in MEASURE_QUANTITIES:
-                        if 'PR' not in y_var_name:
-                            y_data = self.current_measurement.get_analysis_value_from_runs(y_var_name)
-                        else:
-                            if y_var_name == 'Counts Top A (PR)':
-                                y_data = counts_first
-                            elif y_var_name == 'Counts Top B (PR)':
-                                y_data = counts_second
-                    else:
+                        x_data = self.current_measurement.get_parameter_value_from_runs(x_var_name) 
                         y_data = self.current_measurement.get_parameter_value_from_runs(y_var_name)
-
                     # now plot stuff:
                     # clear axis first:
                     self.ax_list[f].cla()
@@ -2798,32 +2810,46 @@ class BEC1_Portal():
                         print('incompatible data!')
                     self.canvas_live_analysis.draw_idle()
 
-
                 elif self.figure_plotting_info[f] and len(self.figure_plotting_info[f]) == 1: 
                     # two cases: plotting [image] or plot [density (z) vs z from box exp shots]
-                    # if this plot is to be populated with [image]:
                     q = self.figure_plotting_info[f][0] # this is a one-element list, so there's nothing in self.figure_plotting_info[1] doesn't exist
-                    img = self.current_measurement.get_analysis_value_from_runs(q)
-                    print(img.shape)
-                    # clear axis first:
-                    self.ax_list[f].cla()
-                    # redraw titles and labels:
-                    xlabel = 'X'
-                    ylabel = 'Y'
-                    title  = self.figure_plotting_info[f][0]
-                    self.ax_list[f].set_xlabel(xlabel)
-                    self.ax_list[f].set_ylabel(ylabel)
-                    self.ax_list[f].set_title(title)
+                    if q == 'Densities(z) Box Exp (PR)':
+                        data = self.current_measurement.get_analysis_value_from_runs(q)
+                        print(data.shape)
+                        # clear axis first:
+                        self.ax_list[f].cla()
+                        xlabel = 'Z'
+                        ylabel = 'Density along z'
+                        title = self.figure_plotting_info[f][0]
+                        self.ax_list[f].set_xlabel(xlabel)
+                        self.ax_list[f].set_ylabel(ylabel)
+                        self.ax_list[f].set_title(title)
 
-                    # plot the last image in img[]:
-                    self.ax_list[f].imshow(img[-1])
-                    #### code for setting up scrolling through shots
-                    self.tracker_list[f] = IndexTracker(self.ax_list[f], img, title)
-                    self.fig_live_analysis.canvas.mpl_connect('scroll_event', self.tracker_list[f].on_scroll)
+                    else:
+                        img = self.current_measurement.get_analysis_value_from_runs(q)
+                        print(img.shape)
+
+                        # clear axis first:
+                        self.ax_list[f].cla()
+                        # redraw titles and labels:
+                        xlabel = 'X'
+                        ylabel = 'Y'
+                        title  = self.figure_plotting_info[f][0]
+                        self.ax_list[f].set_xlabel(xlabel)
+                        self.ax_list[f].set_ylabel(ylabel)
+                        self.ax_list[f].set_title(title)
+
+                        # plot the last image in img[]:
+                        self.ax_list[f].imshow(img[-1])
+                        #### code for setting up scrolling through shots
+                        self.tracker_list[f] = IndexTracker(self.ax_list[f], img, title)
+                        self.fig_live_analysis.canvas.mpl_connect('scroll_event', self.tracker_list[f].on_scroll)
+
                     # re-draw canvas
                     self.canvas_live_analysis.draw_idle()                        
 
             self.refresh_live_analysis()
+            loop_counter += 1
             time.sleep(0.5)
 
     def top_double(self):
