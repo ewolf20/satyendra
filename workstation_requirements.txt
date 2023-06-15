@@ -1,1 +1,2 @@
 pyttsx3==2.90
+VimbaPython @ file:///C:/Users/BEC1%20Top/Repositories/VimbaPython%20Source
