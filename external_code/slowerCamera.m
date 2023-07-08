@@ -16,11 +16,11 @@ classdef slowerCamera < handle
             this.settings.cameraType         = p.Results.cameraType;
             
             if strcmp(this.settings.cameraType,'AtomShutter')
-                this.hardware.camera             = webcam(1);
+                this.hardware.camera             = webcam(2);
 %                 this.hardware.camera.Saturation  = 128;
 %                 this.hardware.camera.Contrast    = 80;
 %                 this.hardware.camera.Brightness  = 140;
-                this.settings.marqueeBox         = [924   540    80    44];
+                this.settings.marqueeBox         = [924   380    80    44];
             else
                 this.settings.marqueeBox         = [982   457    83    13];
                 this.hardware.camera             = webcam(2);
