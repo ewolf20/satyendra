@@ -1,5 +1,10 @@
+import datetime
 from math import inf 
+import os
 import time 
+
+from astropy.io import fits
+import numpy as np
 """
 Given a camera in video mode, acquire a logical grouping of frames.
 
@@ -98,3 +103,28 @@ def acquire_rolling_frame_sequence_nonblocking(t, cam, num_frames, frame_timeout
             t = inf 
             cam.flush_video_buffer()
         return (t, frames)
+    
+
+DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
+FILENAME_DELIMITER_CHAR = "_"
+
+"""
+Save frames to disk. 
+
+Given a tuple of frames as provided by the functions above, save the data to disk at a specified path and 
+in a specified format.
+
+Parameters:
+
+frames: A tuple of frames in numpy array format. 
+path_sans_extension: A path at which to save the data.
+"""
+def save_frames(frames, save_path):
+    frame_numpy_stack = np.stack(frames)
+    save_format = save_path.split(".")[-1] 
+    if save_format == "fits":
+        hdu = fits.PrimaryHDU(frame_numpy_stack)
+        hdu.writeto(save_path)
+    else:
+        raise ValueError("Unsupported saving format.")
+
