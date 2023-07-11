@@ -24,13 +24,13 @@ def main():
             setup_camera(cam_wrapper, *cam_setup_params)
             print("Done. Use Ctrl+C to exit.")
             try:
-                cam_wrapper.start_streaming()
+                cam_wrapper.start_video()
                 while True:
-                    current_frame = cam_wrapper.get_streamed_frame()
+                    current_frame = cam_wrapper.get_video_frame()
                     if not current_frame is None:
                         plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = 255, cmap="gray")
             finally:
-                cam_wrapper.stop_streaming()
+                cam_wrapper.stop_video()
 
 
 def parse_clas():
@@ -39,7 +39,8 @@ def parse_clas():
         _help_function() 
         exit(0)
     camera_name = command_line_args[0]
-    camera_config_dict_dict = loading_functions.load_guppy_camera_parameters_json() 
+    GUPPY_CONFIG_FILENAME = "guppy_camera_config_local.json"
+    camera_config_dict_dict = loading_functions.load_config_json(GUPPY_CONFIG_FILENAME) 
     camera_config_dict = camera_config_dict_dict[camera_name] 
     camera_id = camera_config_dict["camera_id"]
     if len(command_line_args) > 1:
@@ -67,6 +68,7 @@ def setup_camera(cam_wrapper, exposure_time_us, exposure_auto, image_height, ima
     cam_wrapper.set_exposure_time(exposure_time_us) 
     cam_wrapper.set_image_height(image_height) 
     cam_wrapper.set_image_width(image_width)
+    cam_wrapper.set_property("TriggerMode", "Off")
 
 
 

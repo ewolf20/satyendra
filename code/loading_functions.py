@@ -29,12 +29,13 @@ def load_experiment_parameters_from_central_folder(pathname = None):
         pathname = _get_central_experiment_parameters_pathname()
     with open(pathname, 'r') as experiment_parameters_file:
         return json.load(experiment_parameters_file)
+    
 
-def load_guppy_camera_parameters_json():
-    GUPPY_CAMERA_CONFIG_FILENAME = "guppy_camera_config_local.json"
-    with pkg_resources.path(c, GUPPY_CAMERA_CONFIG_FILENAME) as config_path:
+def load_config_json(json_filename):
+    with pkg_resources.path(c, json_filename) as config_path:
         with open(config_path, 'r') as config_file:
             return json.load(config_file)
+
 
 def update_central_experiment_parameters(key, value, pathname = None):
     if pathname is None:

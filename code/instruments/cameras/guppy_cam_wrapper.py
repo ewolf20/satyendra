@@ -44,7 +44,7 @@ class GuppyCamWrapper(Camera):
         self._video_running = False
 
     def is_video_running(self):
-        return self._video_running
+        return self.cam.is_streaming()
 
 
     def get_video_frame(self, recency = "oldest"):
@@ -71,10 +71,14 @@ class GuppyCamWrapper(Camera):
             raise RuntimeError("Video mode is not running.")
         return len(self._streaming_buffer_deque)
 
-    _supported_writeable_properties = ["ExposureTime", "ExposureAuto", "Width", "Height"]
+    _supported_writeable_properties = ["ExposureTime", "ExposureAuto", "Height", "GainAuto", "GainRaw","TriggerActivation",
+                                       "TriggerMode", "TriggerSelector", "TriggerSource", "Width"]
 
-    _supported_writeable_property_values = {"ExposureTime":(int, "in microseconds"), "AutoExposure":(str, "'On' or 'Off'"), "Width":(int, 'pix'), 
-                                  "Height":(int, 'pix')}
+    _supported_writeable_property_values = {"ExposureTime":(int, "in microseconds"), "ExposureAuto":(str, "'On' or 'Off'"), "GainAuto":(str, "'On' or 'Off'"),
+                                            "GainRaw":(int, "8 to 48, increment 1"), "Height":(int, 'pix'), 
+                                            "TriggerActivation":(str, "'RisingEdge' or 'FallingEdge'"), "TriggerMode":(str, "'On' or 'Off'"),
+                                            "TriggerSelector":(str, "'ExposureStart' or other value"), "TriggerSource":(str, "'InputLines' or other value"),
+                                            "Width":(int, 'pix')}
     
     _supported_read_only_properties = ["ExposureTimeIncrement", "WidthMax", "HeightMax", "DeviceID"]
 
