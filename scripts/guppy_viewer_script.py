@@ -39,7 +39,7 @@ def parse_clas():
         _help_function() 
         exit(0)
     camera_name = command_line_args[0]
-    GUPPY_CONFIG_FILENAME = "guppy_camera_config_local.json"
+    GUPPY_CONFIG_FILENAME = "guppy_camera_name_config_local.json"
     camera_config_dict_dict = loading_functions.load_config_json(GUPPY_CONFIG_FILENAME) 
     camera_config_dict = camera_config_dict_dict[camera_name] 
     camera_id = camera_config_dict["camera_id"]

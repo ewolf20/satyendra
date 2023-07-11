@@ -4,6 +4,23 @@ from abc import ABC, abstractmethod
 Abstract class for standardizing calls to cameras."""
 class Camera(ABC):
 
+    """
+    Cameras should support context management, but should function normally when not called in a 
+    context manager (i.e. not rely on __enter__ for setup) """
+    @abstractmethod 
+    def __enter__(self):
+        pass 
+
+
+    @abstractmethod 
+    def __exit__(self, exc_type, exc_val, exc_trace):
+        pass
+
+    """
+    When called, gracefully close the connection to the camera hardware."""
+    @abstractmethod 
+    def close(self):
+        pass 
 
     """
     When called, set a property of the camera with name key to a value specified by val. Subclasses are free to implement separate 

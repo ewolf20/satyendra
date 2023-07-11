@@ -34,7 +34,7 @@ def load_experiment_parameters_from_central_folder(pathname = None):
 def load_config_json(json_filename):
     with pkg_resources.path(c, json_filename) as config_path:
         with open(config_path, 'r') as config_file:
-            return json.load(config_file)
+            return json.load(config_file)    
 
 
 def update_central_experiment_parameters(key, value, pathname = None):

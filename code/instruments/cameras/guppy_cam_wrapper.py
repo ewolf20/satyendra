@@ -1,5 +1,10 @@
 from collections import deque
+
+from vimba import Vimba
+
+
 from camera_interface import Camera
+from satyendra.code import loading_functions
 
 
 
@@ -16,14 +21,43 @@ class GuppyCamWrapper(Camera):
 
     Parameters:
 
-    cam: The vimba Camera instance used to instantiate the class
-    streaming_max_frames: The number of frames stored locally when camera is in streaming mode
+    cam_identifier: (str) An identifier for the camera - either a key appearing in the local guppy camera name 
+    config file, or a string identifier.
     """
     #TODO: Set self.video_running based on cam.is_streaming; should work, but somehow glitches on main PC...
-    def __init__(self, cam):
-        self.cam = cam
-        self._video_running = self.cam.is_streaming()
+    def __init__(self, cam_identifier):
+        self.cam_identifier = cam_identifier
+        self.cam = self._load_camera()
 
+
+    def _load_camera(self):
+        GUPPY_CAM_NAME_CONFIG_FILENAME = "guppy_camera_name_config_local.json"
+        guppy_cam_name_dict = loading_functions.load_config_json(GUPPY_CAM_NAME_CONFIG_FILENAME)
+        if self.cam_identifier in guppy_cam_name_dict:
+            cam_id = guppy_cam_name_dict[self.cam_identifier] 
+        else:
+            cam_id = self.cam_identifier 
+        #Dark magic to handle the guppy camera's weird context management requirements...
+        def camera_generator_func():
+            with Vimba.get_instance() as vimba:
+                cams = vimba.get_all_cameras()
+                matching_id_cams = [cam for cam in cams if cam.get_id() == cam_id]
+                with matching_id_cams[0] as cam:
+                    yield cam
+        self._cam_generator = camera_generator_func()
+        self.cam = next(self._cam_generator)
+
+    def __enter__(self):
+        return self 
+    
+    def __exit__(self, exc_type, exc_val, exc_trace):
+        self.close()
+
+
+    def close(self):
+        if self.is_video_running():
+            self.stop_video() 
+        self.close()
 
     def get_frame(self):
         frame = self.cam.get_frame() 
