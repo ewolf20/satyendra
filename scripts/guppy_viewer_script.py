@@ -9,28 +9,24 @@ path_to_satyendra = path_to_file + "/../../"
 
 sys.path.insert(0, path_to_satyendra)
 
-from satyendra.code import plotting_utilities, guppy_cam_wrapper, loading_functions
+from satyendra.code import plotting_utilities, guppy_camera, loading_functions
 
 
 def main():
     print("Initializing")
-    with Vimba.get_instance() as vimba:
-        camera_id, *cam_setup_params = parse_clas()
-        cams = vimba.get_all_cameras() 
-        matching_id_cams = [cam for cam in cams if cam.get_id() == camera_id]
-        fig, ax = plotting_utilities.initialize_live_plot()
-        with matching_id_cams[0] as cam:
-            cam_wrapper = guppy_cam_wrapper.GuppyCamWrapper(cam)
-            setup_camera(cam_wrapper, *cam_setup_params)
-            print("Done. Use Ctrl+C to exit.")
-            try:
-                cam_wrapper.start_video()
-                while True:
-                    current_frame = cam_wrapper.get_video_frame()
-                    if not current_frame is None:
-                        plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = 255, cmap="gray")
-            finally:
-                cam_wrapper.stop_video()
+    camera_id, *cam_setup_params = parse_clas()
+    fig, ax = plotting_utilities.initialize_live_plot()
+    with guppy_camera.GuppyCamera(camera_id) as cam:
+        setup_camera(cam, *cam_setup_params)
+        print("Done. Use Ctrl+C to exit.")
+        try:
+            cam.start_video()
+            while True:
+                current_frame = cam.get_video_frame()
+                if not current_frame is None:
+                    plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = 255, cmap="gray")
+        finally:
+            cam.stop_video()
 
 
 def parse_clas():
@@ -63,12 +59,12 @@ def parse_clas():
 
 
 
-def setup_camera(cam_wrapper, exposure_time_us, exposure_auto, image_height, image_width):
-    cam_wrapper.set_auto_exposure(exposure_auto)
-    cam_wrapper.set_exposure_time(exposure_time_us) 
-    cam_wrapper.set_image_height(image_height) 
-    cam_wrapper.set_image_width(image_width)
-    cam_wrapper.set_property("TriggerMode", "Off")
+def setup_camera(cam, exposure_time_us, exposure_auto, image_height, image_width):
+    cam.set_auto_exposure(exposure_auto)
+    cam.set_exposure_time(exposure_time_us) 
+    cam.set_image_height(image_height) 
+    cam.set_image_width(image_width)
+    cam.set_property("TriggerMode", "Off")
 
 
 
