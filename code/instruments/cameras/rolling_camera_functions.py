@@ -103,10 +103,6 @@ def acquire_rolling_frame_sequence_nonblocking(t, cam, num_frames, frame_timeout
             t = inf 
             cam.flush_video_buffer()
         return (t, frames)
-    
-
-DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
-FILENAME_DELIMITER_CHAR = "_"
 
 
 """

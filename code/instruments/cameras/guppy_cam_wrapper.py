@@ -57,7 +57,7 @@ class GuppyCamWrapper(Camera):
     def close(self):
         if self.is_video_running():
             self.stop_video() 
-        self.close()
+        self._cam_generator.close()
 
     def get_frame(self):
         frame = self.cam.get_frame() 
