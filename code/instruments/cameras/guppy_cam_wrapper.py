@@ -3,7 +3,7 @@ from collections import deque
 from vimba import Vimba
 
 
-from camera_interface import Camera
+from . import camera_interface
 from satyendra.code import loading_functions
 
 
@@ -14,7 +14,7 @@ in a context manager while at the same time allowing one to wrap "implementation
 functionality into a more user-friendly interface.
 """
 
-class GuppyCamWrapper(Camera):
+class GuppyCamWrapper(camera_interface.Camera):
 
     """
     Initialization method. 
