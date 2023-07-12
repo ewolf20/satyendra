@@ -108,6 +108,44 @@ def acquire_rolling_frame_sequence_nonblocking(t, cam, num_frames, frame_timeout
 DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
 FILENAME_DELIMITER_CHAR = "_"
 
+
+"""
+Regroup a series of numpy-formatted frames. 
+
+Given a list of frames - either 2D or 3D numpy arrays, depending on whether there are 
+multiple exposures per frame - regroup them according to the indices in exposure_indices.
+
+Parameters:
+
+frames_list: An iterable of frames from a camera. Frames are assumed to be in numpy array format, 
+being 2D numpy arrays if there is only one exposure per frame, and 3D arrays otherwise.
+
+exposure_indices_list: An iterable of iterables, each of them a set of indices to group into one logical 
+grouping of frames. If, for example, frames is of length 3, with each frame containing 2 exposures, then 
+setting exposure_indices_list to [[1, 3, 5], [2, 4, 6]] would group the odd- and even-numbered exposures together, 
+where the exposure index is incremented first within a frame, then between frames.
+"""
+def regroup_numpy_frames(frames, exposure_indices_list):
+    first_frame = frames[0]
+    if len(first_frame.shape) == 2:
+        exposures = frames
+    elif len(first_frame.shape) == 3:
+        exposures = [] 
+        for frame in frames:
+            for exposure in frame:
+                exposures.append(exposure)
+    else:
+        raise ValueError("Incorrect shape for frames.") 
+    exposure_array = np.array(exposures)
+    return_tuple_list = []
+    for exposure_indices in exposure_indices_list:
+        exposure_indices = np.array(exposure_indices)
+        regrouped_exposures = exposure_array[exposure_indices] 
+        regrouped_exposures_tuple = tuple(regrouped_exposures)
+        return_tuple_list.append(regrouped_exposures_tuple)
+    return tuple(return_tuple_list)
+
+
 """
 Save frames to disk. 
 
