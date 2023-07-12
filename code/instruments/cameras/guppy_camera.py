@@ -14,7 +14,7 @@ in a context manager while at the same time allowing one to wrap "implementation
 functionality into a more user-friendly interface.
 """
 
-class GuppyCamWrapper(camera_interface.Camera):
+class GuppyCamera(camera_interface.Camera):
 
     """
     Initialization method. 
@@ -130,45 +130,45 @@ class GuppyCamWrapper(camera_interface.Camera):
 
 
     def set_property(self, key, value):
-        if not key in GuppyCamWrapper._supported_settable_properties:
-            if key in GuppyCamWrapper._supported_read_only_properties:
+        if not key in GuppyCamera._supported_settable_properties:
+            if key in GuppyCamera._supported_read_only_properties:
                 raise RuntimeError("Property name {0} is read-only.".format(key))
             else:
                 raise RuntimeError("Property name {0} is unsupported.".format(key))
-        if not key in GuppyCamWrapper._setter_wildcards:
+        if not key in GuppyCamera._setter_wildcards:
             attribute = getattr(self.cam, key)
             attribute.set(value)
         else:
-            setter_method = GuppyCamWrapper._setter_wildcards[key] 
+            setter_method = GuppyCamera._setter_wildcards[key] 
             setter_method(self.cam) 
         
 
     def get_property(self, key):
-        if not (key in GuppyCamWrapper._supported_writeable_properties or key in GuppyCamWrapper._supported_read_only_properties):
+        if not (key in GuppyCamera._supported_writeable_properties or key in GuppyCamera._supported_read_only_properties):
             raise ValueError("""Property name {0} is unsupported. A list of property names is available as my_wrapper.writeable_properties and 
                              my_wrapper.read_only_properties.""".format(key))
-        if not key in GuppyCamWrapper._getter_wildcards:
+        if not key in GuppyCamera._getter_wildcards:
             attribute = getattr(self.cam, key)
             attribute_val = attribute.get()
             return attribute_val
         else:
-            getter_method = GuppyCamWrapper._getter_wildcards[key] 
+            getter_method = GuppyCamera._getter_wildcards[key] 
             return getter_method(self.cam)
 
 
 
     @property
     def writeable_properties(self):
-        return GuppyCamWrapper._supported_writeable_properties
+        return GuppyCamera._supported_writeable_properties
     
 
     @property 
     def writeable_property_values(self):
-        return GuppyCamWrapper._supported__writeable_property_values
+        return GuppyCamera._supported__writeable_property_values
     
     @property 
     def read_only_properties(self):
-        return GuppyCamWrapper._supported_read_only_properties
+        return GuppyCamera._supported_read_only_properties
     
 
 
