@@ -21,27 +21,19 @@ class GuppyCamera(camera_interface.Camera):
 
     Parameters:
 
-    cam_identifier: (str) An identifier for the camera - either a key appearing in the local guppy camera name 
-    config file, or a string identifier.
+    cam_id: (str) The id of the camera, as provided by vimba. Running the static method get_available_camera_ids returns a list of available ids.
     """
-    #TODO: Set self.video_running based on cam.is_streaming; should work, but somehow glitches on main PC...
-    def __init__(self, cam_identifier):
-        self.cam_identifier = cam_identifier
+    def __init__(self, cam_id):
+        self.cam_id = cam_id
         self.cam = self._load_camera()
 
 
     def _load_camera(self):
-        GUPPY_CAM_NAME_CONFIG_FILENAME = "guppy_camera_name_config_local.json"
-        guppy_cam_name_dict = loading_functions.load_config_json(GUPPY_CAM_NAME_CONFIG_FILENAME)
-        if self.cam_identifier in guppy_cam_name_dict:
-            cam_id = guppy_cam_name_dict[self.cam_identifier] 
-        else:
-            cam_id = self.cam_identifier 
         #Dark magic to handle the guppy camera's weird context management requirements...
         def camera_generator_func():
             with Vimba.get_instance() as vimba:
                 cams = vimba.get_all_cameras()
-                matching_id_cams = [cam for cam in cams if cam.get_id() == cam_id]
+                matching_id_cams = [cam for cam in cams if cam.get_id() == self.cam_id]
                 with matching_id_cams[0] as cam:
                     yield cam
         self._cam_generator = camera_generator_func()
@@ -70,12 +62,10 @@ class GuppyCamera(camera_interface.Camera):
             self._streaming_buffer_deque.append(frame)
             cam.queue_frame(frame)
         self.cam.start_streaming(frame_handler)
-        self._video_running = True
 
     def stop_video(self):
         self.cam.stop_streaming()
         self._streaming_buffer_deque.clear()
-        self._video_running = False
 
     def is_video_running(self):
         return self.cam.is_streaming()
@@ -212,6 +202,11 @@ class GuppyCamera(camera_interface.Camera):
     
     def get_image_max_width(self):
         return self.cam.WidthMax.get()
-
     
-
+    #Convenience method for getting available camera ids...
+    @staticmethod 
+    def get_available_camera_ids():
+        with Vimba.get_instance() as vimba:
+            cams = vimba.get_all_cameras() 
+            ids_list = [cam.get_id() for cam in cams] 
+            return ids_list
