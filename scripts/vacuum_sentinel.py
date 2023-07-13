@@ -1,7 +1,10 @@
 import json 
 import time
 from collections import deque
-import importlib.resources as pkg_resources
+import importlib.resources as pkg_resource
+
+
+import serial
 
 #Imports utility_functions. Update this once enrico is refactored into modules
 
@@ -38,7 +41,7 @@ ION_GAUGE_WARNING_THRESHOLD = 1e-5
 ION_GAUGE_TURNOFF_THRESHOLD = 1e-4
 
 #List of sentinel-monitored values to plot. Elements are keys of the dict returned by monitor_once
-PLOTTING_KEY_LIST = []
+PLOTTING_KEY_LIST = [""]
 
 #parameters for live plotting
 #Number of values to plot on one live plot. 
@@ -46,7 +49,7 @@ PLOTTING_NUMBER = -1
 #Interval between plotted points (every Nth point is plotted)
 PLOTTING_INTERVAL = 12
 #Put the y scale of the plot in log
-PLOT_YLOG = False 
+PLOT_YLOG = True 
 #Put the x scale of the plot in log
 PLOT_XLOG = False
 #Set the unit of time for the live plot
@@ -83,16 +86,19 @@ def main():
 				counter += 1
 				readings_dict, errors_list, thresholds_list = my_monitor.monitor_once(log_local = local_logger_bool)
 				handle_turnoff_limits(my_monitor, readings_dict, protection_thresholds_dict)
-				if(PRINT_VALUES):
-					print(readings_dict) 
-				if(plot_update_bool):
-					elapsed_time = current_time - start_time
-					update_plots(figure_and_axis_dict, data_deque_dict, time_deque, elapsed_time, readings_dict)
 				error_count, error_fault, error_old_time = handle_errors(error_count, error_fault, error_old_time, errors_list, my_monitor)
 				threshold_count, threshold_fault, threshold_old_time = handle_thresholds(threshold_count, threshold_fault, threshold_old_time, thresholds_list, my_monitor)
+				if(PRINT_VALUES):
+					print(readings_dict) 
+				if(plot_update_bool and error_count == 0):
+					elapsed_time = current_time - start_time
+					update_plots(figure_and_axis_dict, data_deque_dict, time_deque, elapsed_time, readings_dict)
 	except Exception as e:
 		my_monitor.warn_on_slack(" VACUUM_MONITOR_SHUTDOWN: An exception has crashed the vacuum monitoring.", mention_all = True)
+		my_monitor.close_ports()
 		raise e
+	except KeyboardInterrupt as e:
+		my_monitor.close_ports()
 
 
 
@@ -112,7 +118,11 @@ def handle_errors(error_count, error_fault, error_old_time, errors_list, my_moni
 			if(error_current_time - error_old_time > SLACK_ERROR_REUPDATE_TIME_SECS):
 				error_old_time = error_current_time 
 				error_update_string = "VACUUM_ERROR_UPDATE: The reading error persists. Vacuum monitor is unable to read from the following instruments: " + errors_string 
-				my_monitor.warn_on_slack(error_update_string, mention_all = True ) 
+				my_monitor.warn_on_slack(error_update_string, mention_all = True )
+		try:
+			my_monitor.refresh_ports() 
+		except (OSError, serial.SerialException):
+			print("Refresh failed")
 	elif(error_count > 0):
 		error_count -= 1
 		if(error_count < ERROR_PATIENCE and error_fault):

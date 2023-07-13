@@ -109,6 +109,18 @@ class IonGauge:
         self.turn_off() 
         return True
 
+    def close_port(self):
+        self.serial_port.close()
+
+
+    def refresh_port(self):
+        com_port = self.serial_port.port 
+        port_settings = {'baudrate': self.serial_port.baudrate, 'bytesize': self.serial_port.bytesize,
+                         'parity': self.serial_port.parity, 'stopbits': self.serial_port.stopbits, 'timeout': self.serial_port.timeout}
+        self.serial_port.close() 
+        self.serial_port = serial.Serial(com_port, **port_settings)
+
+
 
 
     @staticmethod
