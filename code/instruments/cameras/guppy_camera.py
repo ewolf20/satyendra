@@ -25,7 +25,7 @@ class GuppyCamera(camera_interface.Camera):
     """
     def __init__(self, cam_id):
         self.cam_id = cam_id
-        self.cam = self._load_camera()
+        self._load_camera()
 
 
     def _load_camera(self):
@@ -120,7 +120,7 @@ class GuppyCamera(camera_interface.Camera):
 
 
     def set_property(self, key, value):
-        if not key in GuppyCamera._supported_settable_properties:
+        if not key in GuppyCamera._supported_writeable_properties:
             if key in GuppyCamera._supported_read_only_properties:
                 raise RuntimeError("Property name {0} is read-only.".format(key))
             else:

@@ -9,7 +9,8 @@ path_to_satyendra = path_to_file + "/../../"
 
 sys.path.insert(0, path_to_satyendra)
 
-from satyendra.code import plotting_utilities, guppy_camera, loading_functions
+from satyendra.code import plotting_utilities, loading_functions
+from satyendra.code.instruments.cameras import guppy_camera
 
 
 def main():
