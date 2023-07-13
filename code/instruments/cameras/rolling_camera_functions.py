@@ -43,7 +43,7 @@ Returns:
 frames: A tuple of the acquired frames, in the order of acquisition, or else None if the frames were not found. 
 """
 def acquire_rolling_frame_sequence(cam, num_frames, frame_timeout):
-    frames_available = cam.get_video_buffer_available_frames()
+    frames_available = cam.get_video_buffer_num_available_frames()
     if frames_available == 0:
         return None
     else:
@@ -83,7 +83,7 @@ is _not_ waiting for frames."""
 
 
 def acquire_rolling_frame_sequence_nonblocking(t, cam, num_frames, frame_timeout):
-    frames_available = cam.get_video_buffer_available_frames()
+    frames_available = cam.get_video_buffer_num_available_frames()
     if frames_available == 0 or frames_available > num_frames:
         frames = None 
         t = inf 
@@ -120,6 +120,9 @@ exposure_indices_list: An iterable of iterables, each of them a set of indices t
 grouping of frames. If, for example, frames is of length 3, with each frame containing 2 exposures, then 
 setting exposure_indices_list to [[1, 3, 5], [2, 4, 6]] would group the odd- and even-numbered exposures together, 
 where the exposure index is incremented first within a frame, then between frames.
+
+WARNING: Observe that exposure indices index frames from 1, not 0. This choice was made for consistency with an 
+external standard for frame labeling. 
 """
 def regroup_numpy_frames(frames, exposure_indices_list):
     first_frame = frames[0]
@@ -136,7 +139,9 @@ def regroup_numpy_frames(frames, exposure_indices_list):
     return_tuple_list = []
     for exposure_indices in exposure_indices_list:
         exposure_indices = np.array(exposure_indices)
-        regrouped_exposures = exposure_array[exposure_indices] 
+        #Convert to zero indexing
+        zero_indexed_exposure_indices = exposure_indices - 1
+        regrouped_exposures = exposure_array[zero_indexed_exposure_indices] 
         regrouped_exposures_tuple = tuple(regrouped_exposures)
         return_tuple_list.append(regrouped_exposures_tuple)
     return tuple(return_tuple_list)

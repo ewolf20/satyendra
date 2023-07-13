@@ -1,5 +1,6 @@
 from collections import deque
 
+import numpy as np
 from vimba import Vimba
 
 
@@ -51,8 +52,11 @@ class GuppyCamera(camera_interface.Camera):
             self.stop_video() 
         self._cam_generator.close()
 
-    def get_frame(self):
-        frame = self.cam.get_frame() 
+    def get_frame(self, timeout_ms = 2000):
+        frame = self.cam.get_frame(timeout_ms = timeout_ms) 
+        frame_array = frame.as_numpy_ndarray()
+        #Squeeze out length-1 color channels for monochrome cameras...
+        squeezed_frame_array = np.squeeze(frame_array)
         return frame.as_numpy_ndarray()
         
         
@@ -81,7 +85,9 @@ class GuppyCamera(camera_interface.Camera):
                 raise ValueError("Recency flag not recognized") 
         except IndexError:
             return None
-        return frame.as_numpy_ndarray()
+        frame_array = frame.as_numpy_ndarray()
+        squeezed_frame_array = np.squeeze(frame_array)
+        return squeezed_frame_array
     
 
     #TODO: try to make this thread-safe!
