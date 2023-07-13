@@ -62,6 +62,7 @@ class StatusMonitor:
             except TypeError:
                 values_dict[key] = [values_dict[key]]
         #Write the current dictionary to a df
+        print(values_dict)
         new_df = pd.DataFrame(values_dict)
         if(overwrite):
             new_df.to_csv(log_file_path, mode = 'w', index = False)

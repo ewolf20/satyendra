@@ -110,7 +110,8 @@ class VacuumMonitor(StatusMonitor):
     def monitor_once(self, log_local = True, add_time = True):
         overall_dict = {}
         error_list = []
-        threshold_list = [] 
+        threshold_list = []
+        got_error = False
         for instrument, instrument_name, instrument_read_keys, warning_threshold_dict in zip(self.instrument_list, self.instrument_names_list, 
                                                                                             self.instrument_read_keys_list, self.instrument_warning_dicts_list):
             try:
@@ -122,9 +123,10 @@ class VacuumMonitor(StatusMonitor):
                 for key in instrument_read_keys:
                     overall_dict[key] = "ERROR"
                 error_list.append(instrument_name)
+                got_error = True
         if(add_time):
             overall_dict["Time"] = time.strftime("%y-%m-%d %H:%M:%S")
-        if(log_local):
+        if(log_local and not got_error):
             self.log_values_locally(overall_dict) 
         return (overall_dict, error_list, threshold_list)
 
@@ -159,6 +161,21 @@ class VacuumMonitor(StatusMonitor):
             status_list.append(success)
         return status_list
 
+    def close_ports(self, instrument_names_to_close_port = None):
+        if instrument_names_to_close_port is None:
+            instrument_names_to_close_port = self.instrument_names_list
+        instruments_close_port_tuple_list = [f for f in zip(self.instrument_list, self.instrument_names_list) if f[1] in instrument_names_to_close_port]
+        for instrument, instrument_name in instruments_close_port_tuple_list: 
+            instrument.close_port()
+
+
+    def refresh_ports(self, instrument_names_to_refresh_port = None):
+        if instrument_names_to_refresh_port is None:
+            instrument_names_to_refresh_port = self.instrument_names_list
+        instruments_refresh_port_tuple_list = [f for f in zip(self.instrument_list, self.instrument_names_list) if f[1] in instrument_names_to_refresh_port]
+        for instrument, instrument_name in instruments_refresh_port_tuple_list: 
+            instrument.refresh_port()
+        
         
 
     #TODO: Handle exceptions
