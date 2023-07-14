@@ -17,8 +17,6 @@ FILENAME_DELIMITER_CHAR = '_'
 
 TEMP_FILE_MARKER = "TEMP"
 
-SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
-
 class ImageWatchdog():
 
     """
