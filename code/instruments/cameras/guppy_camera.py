@@ -101,14 +101,14 @@ class GuppyCamera(camera_interface.Camera):
             raise RuntimeError("Video mode is not running.")
         return len(self._streaming_buffer_deque)
 
-    _supported_writeable_properties = ["ExposureTime", "ExposureAuto", "Height", "GainAuto", "GainRaw","TriggerActivation",
+    _supported_writeable_properties = ["ExposureTime", "ExposureAuto", "Height", "GainAuto", "GainRaw","TriggerActivation", "TriggerDelay",
                                        "TriggerMode", "TriggerSelector", "TriggerSource", "Width"]
 
     _supported_writeable_property_values = {"ExposureTime":(int, "in microseconds"), "ExposureAuto":(str, "'On' or 'Off'"), "GainAuto":(str, "'On' or 'Off'"),
                                             "GainRaw":(int, "8 to 48, increment 1"), "Height":(int, 'pix'), 
-                                            "TriggerActivation":(str, "'RisingEdge' or 'FallingEdge'"), "TriggerMode":(str, "'On' or 'Off'"),
-                                            "TriggerSelector":(str, "'ExposureStart' or other value"), "TriggerSource":(str, "'InputLines' or other value"),
-                                            "Width":(int, 'pix')}
+                                            "TriggerActivation":(str, "'RisingEdge' or 'FallingEdge'"), "TriggerDelay":(float, "Exposure start delay after trigger, us"), 
+                                            "TriggerMode":(str, "'On' or 'Off'"), "TriggerSelector":(str, "'ExposureStart' or other value"), 
+                                            "TriggerSource":(str, "'InputLines' or other value"), "Width":(int, 'pix')}
     
     _supported_read_only_properties = ["ExposureTimeIncrement", "WidthMax", "HeightMax", "DeviceID"]
 
