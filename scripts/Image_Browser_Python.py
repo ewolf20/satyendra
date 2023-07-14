@@ -1746,10 +1746,8 @@ class BEC1_Portal():
             fileObj.close()
 
     def display_image(self):
-        fits_image = fits.open(self.current_file_fullpath)
-        # fits_image.info() # display fits image info
-        self.img = fits_image[0].data
-        fits_image.close()
+        with fits.open(self.current_file_fullpath, memmap = False) as hdul:
+            self.img = hdul[0].data 
 
         # get dims of image
         dims = self.img[0,:,:].shape 
