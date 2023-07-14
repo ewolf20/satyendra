@@ -17,8 +17,6 @@ FILENAME_DELIMITER_CHAR = '_'
 
 TEMP_FILE_MARKER = "TEMP"
 
-SUPPORTED_FRAME_FILETYPES = ["tiff8", "tiff16"]
-
 class ImageWatchdog():
 
     """
@@ -27,7 +25,7 @@ class ImageWatchdog():
     Parameters:
 
 
-    image_specification_list: A list specifying the image names which the watchdog looks for in a run, sans file extensions and initial timestamps.
+    image_names_list: A list specifying the image names which the watchdog looks for in a run, sans file extensions and initial timestamps.
 
     watchfolder: A path string to the folder to watch for incoming images from the cameras.
 
@@ -42,9 +40,9 @@ class ImageWatchdog():
     Remark: No separator should be at the end of directory pathnames.
     
     """
-    def __init__(self, watchfolder_path, savefolder_path, image_specification_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits", 
+    def __init__(self, watchfolder_path, savefolder_path, image_names_list, breadboard_mismatch_tolerance = 5.0, image_extension = ".fits", 
                 experiment_parameters_pathname = None, parameters_filename = "run_params_dump.json"):
-        self.image_specification_list = image_specification_list
+        self.image_names_list = image_names_list
         self.watchfolder_path = watchfolder_path
         self.savefolder_path = savefolder_path
         if(not os.path.isdir(self.savefolder_path)):
@@ -82,7 +80,7 @@ class ImageWatchdog():
     mismatch_tolerance: The tolerated difference between the time on breadboard and the timestamp of the image to associate a run id.
     
     Note: A frequent use case is to use this with live analysis; accordingly, some hacks to prevent race conditions are in use."""
-    def associate_images_with_run(self, labelling_waiting_period = 5, mismatch_tolerance = 5, allow_missing_ids = True, verbose = True):
+    def associate_images_with_run(self, labelling_waiting_period = 10, mismatch_tolerance = 8, allow_missing_ids = True, verbose = True):
         image_filename_list = self._get_image_filenames_in_watchfolder() 
         valid_timestamps_list = []
         valid_datetimes_list = [] 
@@ -141,7 +139,7 @@ class ImageWatchdog():
     def _get_image_filenames_in_watchfolder(self):
         images_list = [f for f in os.listdir(self.watchfolder_path) 
                         if (os.path.isfile(os.path.join(self.watchfolder_path, f)) and self.image_extension in f)
-                        and any([image_name in f for image_name in self.image_specification_list])]
+                        and any([image_name in f for image_name in self.image_names_list])]
         return images_list
 
 

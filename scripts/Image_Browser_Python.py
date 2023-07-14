@@ -123,8 +123,9 @@ IMAGING_RESONANCE_TYPES = ['Top A', 'Top B', 'Top AB', 'Side HF', 'Side LF']
 
 # TODO: zip measure_quantities and analysis functions together
 
-IMAGING_TYPES_LIST = ['top_double', 'side_low_mag', 'side_high_mag']
+MEASUREMENT_IMAGING_TYPES_LIST = ['top_double', 'side_low_mag', 'side_high_mag']
 MEASUREMENT_IMAGE_NAME_DICT = {'top_double': ['TopA', 'TopB'], 'side_low_mag':['Side'], 'side_high_mag':['Side']}
+IMAGE_SAVER_CONFIG_FILENAME = "image_saver_config_local.json"
 
 class BEC1_Portal():
     def __init__(self, master):
@@ -331,6 +332,10 @@ class BEC1_Portal():
         self.param_add_bttn.place(x=308,y=736)
 
         # image saver:
+
+        #Load necessary data
+        image_saver_config_dict = satyendra_loading_functions.load_config_json(IMAGE_SAVER_CONFIG_FILENAME)
+        image_saver_imaging_types = list(image_saver_config_dict)
         
         self.line4 = Label(self.tab1, text='-----------------------------------------------------------------')
         self.line4.place(x=20, y = 738+25)
@@ -381,6 +386,15 @@ class BEC1_Portal():
         self.image_saver_status.place(x = 70, y = 863+20)
         self.status_bar = Label(self.tab1, text="Status: ").place(x=20, y = 863+20)
 
+        self.imaging_type_label_image_saver = Label(self.tab1, text = "Imaging Type: ")
+        self.imaging_type_label_image_saver.place(x=20, y=900+20)
+
+        self.imaging_type_image_saver = StringVar()
+        self.imaging_type_image_saver.set(image_saver_imaging_types[0])
+        self.imaging_type_image_saver_menu = OptionMenu(self.tab1, self.imaging_type_image_saver, *image_saver_imaging_types, command = self.choose_imaging_type_image_saver)
+        self.imaging_type_image_saver_menu.configure(width = 20) 
+        self.imaging_type_image_saver_menu.place(x = 118, y = 895 +20)
+        self.current_imaging_type_image_saver = self.imaging_type_image_saver.get()
 
         # ---------------------------------
 
@@ -792,7 +806,7 @@ class BEC1_Portal():
         self.line1_live_analysis.place(x=20, y = 638+25)
 
         # image type buttons:
-        self.image_type = IMAGING_TYPES_LIST[0] # set to this by default
+        self.image_type = MEASUREMENT_IMAGING_TYPES_LIST[0] # set to this by default
 
         self.top_double_bttn = Button(self.tab2, text="Top AB", relief="raised",  width=8, command= self.top_double)
         self.top_double_bttn.place(x=20,y=712)
@@ -1732,10 +1746,8 @@ class BEC1_Portal():
             fileObj.close()
 
     def display_image(self):
-        fits_image = fits.open(self.current_file_fullpath)
-        # fits_image.info() # display fits image info
-        self.img = fits_image[0].data
-        fits_image.close()
+        with fits.open(self.current_file_fullpath, memmap = False) as hdul:
+            self.img = hdul[0].data 
 
         # get dims of image
         dims = self.img[0,:,:].shape 
@@ -1886,6 +1898,9 @@ class BEC1_Portal():
             self.ax.plot(self.roi_xs, self.roi_ys, color = 'r')
             self.canvas.draw_idle()
 
+    ###########################
+    #   Image saver functions #
+    ###########################
     def run_button(self):
         self.confirm_bttn["state"] = DISABLED
         self.add_bttn["state"] = DISABLED
@@ -1990,7 +2005,7 @@ class BEC1_Portal():
             
 
     def acquire(self):
-        camera_saving_folder_pathname, saving_location_root_pathname, image_specification_list = saver.load_config()
+        camera_saving_folder_pathname, saving_location_root_pathname, image_names_list = saver.load_config(self.current_imaging_type_image_saver)
         user_entered_name = self.folder_name
         is_dryrun = user_entered_name == "dryrun"
         savefolder_pathname = saver.initialize_savefolder_portal(saving_location_root_pathname, user_entered_name, is_dryrun)
@@ -1999,7 +2014,7 @@ class BEC1_Portal():
             print("Running as a dry run. WARNING: All images will be deleted on termination.\n")
 
         print("Initializing watchdog...\n")
-        my_watchdog = ImageWatchdog(camera_saving_folder_pathname, savefolder_pathname, image_specification_list, image_extension = IMAGE_EXTENSION)
+        my_watchdog = ImageWatchdog(camera_saving_folder_pathname, savefolder_pathname, image_names_list, image_extension = IMAGE_EXTENSION)
         print("Running!") 
 
         while True:
@@ -2032,7 +2047,7 @@ class BEC1_Portal():
 
     def go_to_button(self):
         if self.folder_name:
-            camera_saving_folder_pathname, saving_location_root_pathname, image_specification_list = saver.load_config()
+            camera_saving_folder_pathname, saving_location_root_pathname, image_names_list = saver.load_config(self.current_imaging_type_image_saver)
             user_entered_name = self.folder_name
             is_dryrun = user_entered_name == "dryrun"
             self.folder_path = saver.initialize_savefolder_portal(saving_location_root_pathname, user_entered_name, is_dryrun)
@@ -2099,7 +2114,7 @@ class BEC1_Portal():
         
         else: # if all is GRAND...
             # check if folder name already exists:
-            camera_saving_folder_pathname, saving_location_root_pathname, image_specification_list = saver.load_config()
+            camera_saving_folder_pathname, saving_location_root_pathname, image_names_list = saver.load_config(self.current_imaging_type_image_saver)
             user_entered_name = self.folder_name
             is_dryrun = user_entered_name == "dryrun"
             savefolder_pathname = saver.initialize_savefolder_portal(saving_location_root_pathname, user_entered_name, is_dryrun)
@@ -2120,6 +2135,10 @@ class BEC1_Portal():
         # reset status box:
         self.image_saver_status.delete(0,'end')
         self.image_saver_status.insert(0,"Adding to existing folder. 'Do it' to run, or try different folder name.")
+
+
+    def choose_imaging_type_image_saver(self, event):
+        self.current_imaging_type_image_saver = self.imaging_type_image_saver.get()
 
     # IMAGING RESONANCE FUNCTIONS:
     def browse_res_button(self):
