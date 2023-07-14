@@ -17,12 +17,9 @@ CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING = "%Y-%m-%d--%H-%M-%S"
 
 
 def _get_central_experiment_parameters_pathname():
-    IMAGE_SAVER_CONFIG_FILENAME = "image_saver_config_local.json"
-    with pkg_resources.path(c, IMAGE_SAVER_CONFIG_FILENAME) as config_path:
-        with open(config_path, 'r') as config_file:
-            config_dict = json.load(config_file) 
-            pathname = config_dict["experiment_parameters_pathname"]
-            return pathname
+    EXPERIMENT_PARAMETERS_CONFIG_PATHNAME = "experiment_parameters_config_local.json"
+    config_dict = load_config_json(IMAGE_SAVER_CONFIG_FILENAME)
+    return config_dict["experiment_parameters_pathname"]
 
 def load_experiment_parameters_from_central_folder(pathname = None):
     if pathname is None:
