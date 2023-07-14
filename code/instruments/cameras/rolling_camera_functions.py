@@ -162,8 +162,6 @@ def save_frames(frames, save_path):
     frame_numpy_stack = np.stack(frames)
     save_format = save_path.split(".")[-1] 
     if save_format == "fits":
-        hdu = fits.PrimaryHDU(frame_numpy_stack)
-        hdu.writeto(save_path)
+        fits.writeto(save_path, frame_numpy_stack)
     else:
         raise ValueError("Unsupported saving format.")
-
