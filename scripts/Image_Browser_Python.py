@@ -1594,7 +1594,7 @@ class BEC1_Portal():
             self.display_image()
 
         toggle_selector.RS = RectangleSelector(self.ax, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -1625,7 +1625,7 @@ class BEC1_Portal():
             self.display_image()
 
         toggle_selector.RS = RectangleSelector(self.ax, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
