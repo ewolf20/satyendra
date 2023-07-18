@@ -1532,6 +1532,7 @@ class BEC1_Portal():
         self.BEC_count_entry.insert(0, str('{:.2e}'.format(self.BEC_count)))
 
     def Na_Catch_DoIt(self):
+        AD_HOC_NEGATIVE_OD_LIMIT = -0.5
         
         # acquire lims for background
         x_min_bg = self.Na_Catch_background_X_min
@@ -1546,21 +1547,21 @@ class BEC1_Portal():
         y_max_roi = self.Na_Catch_ROI_Y_max
 
         bg_area = (y_max_bg - y_min_bg)*(x_max_bg - x_min_bg)
+        print("Background area: {0}".format(bg_area))
         roi_area = (y_max_roi - y_min_roi)*(x_max_roi - x_min_roi)
 
-        od_roi = (-np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:])))
-        od_roi = np.nan_to_num(od_roi)
-        od_roi = np.clip(od_roi, 0, ABSORPTION_LIMIT)
-        od_roi_cropped = od_roi[x_min_roi:x_max_roi, y_min_roi:y_max_roi] # just OD, but cropped
+        overall_od = -np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:]))
+        overall_od_nan_filtered = np.nan_to_num(overall_od)
+        overall_od_fully_cleaned = np.clip(overall_od_nan_filtered, AD_HOC_NEGATIVE_OD_LIMIT, ABSORPTION_LIMIT)
+        
+        od_roi_cropped = overall_od_fully_cleaned[y_min_roi:y_max_roi, x_min_roi:x_max_roi]
 
-        od_bg = (-np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:])))
-        od_bg = np.nan_to_num(od_bg)
-        od_bg = np.clip(od_bg, 0, ABSORPTION_LIMIT)
-        od_bg_cropped = od_bg[x_min_bg:x_max_bg, y_min_bg:y_max_bg] # just OD, but cropped
+        od_bg_cropped = overall_od_fully_cleaned[y_min_bg:y_max_bg, x_min_bg:x_max_bg]
+
 
         # integrate
-        count_od = sum(sum(od_roi_cropped))
-        count_bg = sum(sum(od_bg_cropped))
+        count_od = np.sum(od_roi_cropped)
+        count_bg = np.sum(od_bg_cropped)
 
         # convert to bg corresponding to roi area:
         count_bg = int(count_bg*(roi_area/bg_area))

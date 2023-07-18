@@ -23,7 +23,7 @@ def main():
         try:
             cam.start_video()
             while True:
-                current_frame = cam.get_video_frame()
+                current_frame = cam.get_video_frame(recency = "newest")
                 if not current_frame is None:
                     plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = 255, cmap="gray")
         finally:
