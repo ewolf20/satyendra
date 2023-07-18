@@ -110,7 +110,7 @@ class GuppyCamera(camera_interface.Camera):
                                             "TriggerMode":(str, "'On' or 'Off'"), "TriggerSelector":(str, "'ExposureStart' or other value"), 
                                             "TriggerSource":(str, "'InputLines' or other value"), "Width":(int, 'pix')}
     
-    _supported_read_only_properties = ["ExposureTimeIncrement", "WidthMax", "HeightMax", "DeviceID"]
+    _supported_read_only_properties = ["BinningHorizontal", "BinningVertical", "ExposureTimeIncrement", "WidthMax", "HeightMax", "DeviceID"]
 
 
     #Wildcard getters which do not obey the standard syntax 

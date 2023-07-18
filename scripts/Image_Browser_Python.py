@@ -76,7 +76,8 @@ RF_DIRECTIONS = [
 
 LIVE_FIGURES = ['Figure 1','Figure 2','Figure 3','Figure 4']
 
-MEASURE_QUANTITIES = ['Pixel sum side', 
+MEASURE_QUANTITIES = ['Pixel sum side',
+                        'Pixel sum Na Catch', 
                         'Pixel sum Top A', 
                         'Pixel sum Top B', 
                         'Pixel sum Top AB', 
@@ -90,6 +91,7 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         ]
 
 ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
+                        analysis_functions.get_od_pixel_sum_na_catch,
                         analysis_functions.get_od_pixel_sum_top_A,
                         analysis_functions.get_od_pixel_sum_top_B,
                         analysis_functions.get_od_pixel_sums_top_double,
@@ -123,8 +125,8 @@ IMAGING_RESONANCE_TYPES = ['Top A', 'Top B', 'Top AB', 'Side HF', 'Side LF']
 
 # TODO: zip measure_quantities and analysis functions together
 
-MEASUREMENT_IMAGING_TYPES_LIST = ['top_double', 'side_low_mag', 'side_high_mag']
-MEASUREMENT_IMAGE_NAME_DICT = {'top_double': ['TopA', 'TopB'], 'side_low_mag':['Side'], 'side_high_mag':['Side']}
+MEASUREMENT_IMAGING_TYPES_LIST = measurement.IMAGING_TYPES_LIST
+MEASUREMENT_IMAGE_NAME_DICT = measurement.MEASUREMENT_IMAGE_NAME_DICT
 IMAGE_SAVER_CONFIG_FILENAME = "image_saver_config_local.json"
 
 class BEC1_Portal():
@@ -809,16 +811,20 @@ class BEC1_Portal():
         self.image_type = MEASUREMENT_IMAGING_TYPES_LIST[0] # set to this by default
 
         self.top_double_bttn = Button(self.tab2, text="Top AB", relief="raised",  width=8, command= self.top_double)
-        self.top_double_bttn.place(x=20,y=712)
+        self.top_double_bttn.place(x=10,y=712)
         self.top_double_bttn["state"] = DISABLED
 
         self.side_lm_bttn = Button(self.tab2, text="Side LM", relief="raised",  width=8, command= self.side_low_mag)
-        self.side_lm_bttn.place(x=95,y=712)
+        self.side_lm_bttn.place(x=80,y=712)
         self.side_lm_bttn["state"] = DISABLED
 
         self.side_hm_bttn = Button(self.tab2, text="Side HM", relief="raised",  width=8, command= self.side_high_mag)
-        self.side_hm_bttn.place(x=170,y=712)
+        self.side_hm_bttn.place(x=150,y=712)
         self.side_hm_bttn["state"] = DISABLED
+
+        self.na_catch_bttn = Button(self.tab2, text = "Na Catch", relief = "raised", width = 8, command = self.na_catch)
+        self.na_catch_bttn.place(x=220, y=712) 
+        self.na_catch_bttn["state"] = DISABLED
 
         # plotting variables status:
         self.plotting_variables_entry_live_analysis = Entry(self.tab2, text="plotting variables", width=37)
@@ -830,7 +836,7 @@ class BEC1_Portal():
         self.chosen_figure_live_analysis = StringVar()
         self.chosen_figure_live_analysis.set(LIVE_FIGURES[0])
         self.chosen_figure_live_analysis_menu = OptionMenu(self.tab2, self.chosen_figure_live_analysis, *LIVE_FIGURES, command = self.choose_figure_live_analysis)
-        self.chosen_figure_live_analysis_menu.place(x=245, y=709)
+        self.chosen_figure_live_analysis_menu.place(x=290, y=709)
         self.current_figure_live_analysis = self.chosen_figure_live_analysis.get() 
 
         # live analysis label
@@ -1526,6 +1532,7 @@ class BEC1_Portal():
         self.BEC_count_entry.insert(0, str('{:.2e}'.format(self.BEC_count)))
 
     def Na_Catch_DoIt(self):
+        AD_HOC_NEGATIVE_OD_LIMIT = -0.5
         
         # acquire lims for background
         x_min_bg = self.Na_Catch_background_X_min
@@ -1540,21 +1547,21 @@ class BEC1_Portal():
         y_max_roi = self.Na_Catch_ROI_Y_max
 
         bg_area = (y_max_bg - y_min_bg)*(x_max_bg - x_min_bg)
+        print("Background area: {0}".format(bg_area))
         roi_area = (y_max_roi - y_min_roi)*(x_max_roi - x_min_roi)
 
-        od_roi = (-np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:])))
-        od_roi = np.nan_to_num(od_roi)
-        od_roi = np.clip(od_roi, 0, ABSORPTION_LIMIT)
-        od_roi_cropped = od_roi[x_min_roi:x_max_roi, y_min_roi:y_max_roi] # just OD, but cropped
+        overall_od = -np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:]))
+        overall_od_nan_filtered = np.nan_to_num(overall_od)
+        overall_od_fully_cleaned = np.clip(overall_od_nan_filtered, AD_HOC_NEGATIVE_OD_LIMIT, ABSORPTION_LIMIT)
+        
+        od_roi_cropped = overall_od_fully_cleaned[y_min_roi:y_max_roi, x_min_roi:x_max_roi]
 
-        od_bg = (-np.log(safe_subtract(self.img[0,:,:], self.img[2,:,:])/safe_subtract(self.img[1,:,:], self.img[2,:,:])))
-        od_bg = np.nan_to_num(od_bg)
-        od_bg = np.clip(od_bg, 0, ABSORPTION_LIMIT)
-        od_bg_cropped = od_bg[x_min_bg:x_max_bg, y_min_bg:y_max_bg] # just OD, but cropped
+        od_bg_cropped = overall_od_fully_cleaned[y_min_bg:y_max_bg, x_min_bg:x_max_bg]
+
 
         # integrate
-        count_od = sum(sum(od_roi_cropped))
-        count_bg = sum(sum(od_bg_cropped))
+        count_od = np.sum(od_roi_cropped)
+        count_bg = np.sum(od_bg_cropped)
 
         # convert to bg corresponding to roi area:
         count_bg = int(count_bg*(roi_area/bg_area))
@@ -1588,7 +1595,7 @@ class BEC1_Portal():
             self.display_image()
 
         toggle_selector.RS = RectangleSelector(self.ax, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -1619,7 +1626,7 @@ class BEC1_Portal():
             self.display_image()
 
         toggle_selector.RS = RectangleSelector(self.ax, line_select_callback,
-        drawtype='box', useblit=True,
+        useblit=True,
         button=[1,3], # don't use middle button
         minspanx=5, minspany=5,
         spancoords='pixels')
@@ -2370,10 +2377,8 @@ class BEC1_Portal():
     
     def display_image_live_analysis(self):
         # this is the lighter version of the full display_image method
-        fits_image = fits.open(self.current_file_fullpath_live_analysis)
-        # fits_image.info() # display fits image info
-        self.img_live_analysis = fits_image[0].data
-        fits_image.close()
+        with fits.open(self.current_file_fullpath_live_analysis, memmap = False) as hdul:
+            self.img_live_analysis = hdul[0].data
 
         # get dims of image
         dims = self.img_live_analysis[0,:,:].shape 
@@ -2883,6 +2888,7 @@ class BEC1_Portal():
             # enable buttons:
             self.side_lm_bttn["state"] = DISABLED
             self.side_hm_bttn["state"] = DISABLED
+            self.na_catch_bttn["state"] = DISABLED
 
     def side_low_mag(self):
         if self.side_lm_bttn.config('relief')[-1] == 'sunken':
@@ -2896,6 +2902,7 @@ class BEC1_Portal():
             # enable buttons:
             self.top_double_bttn["state"] = DISABLED
             self.side_hm_bttn["state"] = DISABLED
+            self.na_catch_bttn["state"] = DISABLED
 
     def side_high_mag(self):
         if self.side_hm_bttn.config('relief')[-1] == 'sunken':
@@ -2909,12 +2916,28 @@ class BEC1_Portal():
             # enable buttons:
             self.top_double_bttn["state"] = DISABLED
             self.side_lm_bttn["state"] = DISABLED
+            self.na_catch_bttn["state"] = DISABLED
+
+    def na_catch(self):
+        if self.na_catch_bttn.config('relief')[-1] == 'sunken':
+            self.na_catch_bttn.config(relief="raised")
+            self.na_catch_bttn.config(fg='black')
+            self.enable_image_type_buttons()
+        else:
+            self.na_catch_bttn.config(relief="sunken")  
+            self.na_catch_bttn.config(fg='red')
+            self.image_type = 'na_catch'
+            # enable buttons:
+            self.top_double_bttn["state"] = DISABLED
+            self.side_lm_bttn["state"] = DISABLED
+            self.side_hm_bttn["state"] = DISABLED
 
     def enable_image_type_buttons(self):
         # enable buttons:
         self.top_double_bttn["state"] = NORMAL
         self.side_lm_bttn["state"] = NORMAL
         self.side_hm_bttn["state"] = NORMAL
+        self.na_catch_bttn["state"] = NORMAL
         self.analyze_live_bttn["state"] = DISABLED
 
     def confirm_roi_and_norm_box(self):
