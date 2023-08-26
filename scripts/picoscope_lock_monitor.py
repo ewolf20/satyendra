@@ -11,9 +11,6 @@ import ctypes
 import pyttsx3 
 
 
-# TODO: update trigger level automatically based on where boosterLoc is...
-
-
 PATH_TO_REPOSITORIES_FOLDER = "C:/Users/BEC1 Top/Repositories"
 sys.path.insert(0, PATH_TO_REPOSITORIES_FOLDER)
 
@@ -21,26 +18,49 @@ from satyendra.code import slack_bot
 from satyendra.code.ps2000_wrapper_blockmode_utils import Picoscope
 
 
+
+#####BEGIN CONFIGS#########
+#Slack config params
+SLACK_SECS_BETWEEN_WARNINGS = 300
+
+#Lock config params
+LOCK_BLOCK_SIZE = 1000 
+LOCK_BLOCK_DURATION = 0.005
+LOCK_PRE_TRIGGER_PERCENT = 0
+
+#Li scope config params
+LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 2000
+
+LI_SCOPE_ID = 0
+LI_SCOPE_SERIAL = "J0247/1191" 
+LI_SCOPE_CHANNEL_A_RANGE_MV = 10000
+LI_SCOPE_CHANNEL_B_RANGE_MV = 5000
+LI_SCOPE_TRIGGER_DIRECTION = 0
+LI_SCOPE_TRIGGER_CHANNEL = "A"
+
+LI_SCOPE_FIXED_PARAMS = [LI_SCOPE_ID, LI_SCOPE_SERIAL, LI_SCOPE_CHANNEL_A_RANGE_MV, 
+                   LI_SCOPE_CHANNEL_B_RANGE_MV, 
+                   LOCK_PRE_TRIGGER_PERCENT, LOCK_BLOCK_SIZE, LOCK_BLOCK_DURATION]
+
+LI_SCOPE_TRIGGER_FIXED_PARAMS = [LI_SCOPE_TRIGGER_DIRECTION, LI_SCOPE_TRIGGER_CHANNEL]
+
+#Na scope config params 
+NA_SCOPE_ID = 1
+NA_SCOPE_SERIAL = "J0247/0361"
+NA_SCOPE_CHANNEL_A_RANGE_MV = 500 
+NA_SCOPE_CHANNEL_B_RANGE_MV = 10000
+
+NA_SCOPE_FIXED_PARAMS = [NA_SCOPE_ID, NA_SCOPE_SERIAL, NA_SCOPE_CHANNEL_A_RANGE_MV, 
+                         NA_SCOPE_CHANNEL_B_RANGE_MV, LOCK_PRE_TRIGGER_PERCENT, LOCK_BLOCK_SIZE, 
+                         LOCK_BLOCK_DURATION]
+
+#########END CONFIGS#######
+
+
 def main(initial_trigger_level):
-    # enable text to speech: Zira
-    zira = pyttsx3.init()
-    voice_zira = zira.getProperty('voices')
-    zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-    # enable text to speech: David
-    david = pyttsx3.init()
-    voice_david = david.getProperty('voices')
-    david.setProperty('voice', voice_david[0].id) # index = 0 for male and 1 for female
-    #Slack notification params:
-    SLACK_SECS_BETWEEN_WARNINGS = 300 
-
-    # lock constants
-    blockSize = 1000
-    blockDuration = 0.005
-
-    if len(initial_trigger_level) == 1: # if no argv found:
-        triggerLevel = 2000 # default value 
-    else:
-        triggerLevel = int(initial_trigger_level[1])
+    zira, david = initialize_ttsengines()
+    li_scope_trigger_level = parse_clas()
+    li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
 
     initialization_counter = 0
     initialization_counter_MAX = 20
@@ -95,62 +115,16 @@ def main(initial_trigger_level):
     # peak find window:
     peak_find_window = 35
 
-    # instantiate a device with its specific serial number: Li picoscope
-    Li_picoscope = Picoscope(0, serial='JO247/1191', verbose=True)
-    Li_picoscope.setup_channel('A',channel_range_mv=10000)
-    Li_picoscope.setup_channel('B',channel_range_mv=5000)
-    Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
-    Li_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
+    li_figure, li_ax, li_lines = initialize_li_plot()
+    na_figure, na_ax1, na_ax2, na_lines = initialize_na_plot()
 
-    # instantiate a device with its specific serial number: Na picoscope
-    Na_picoscope = Picoscope(1, serial='JO247/0361', verbose=True)
-    Na_picoscope.setup_channel('A',channel_range_mv=500)
-    Na_picoscope.setup_channel('B',channel_range_mv=10000)
-    Na_picoscope.setup_block(block_size = blockSize, block_duration=blockDuration, pre_trigger_percent=0)
+    li_picoscope = initialize_scope(*LI_SCOPE_FIXED_PARAMS, trigger_params = li_scope_trigger_params)
+    li_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
 
-    with Li_picoscope and Na_picoscope:
-        #### LI SCOPE ####
-        Li_picoscope.run_block()
-        buffers = Li_picoscope.get_block_traces()
-        traces_value = [val for val in buffers.values()]
+    na_picoscope = initialize_scope(*NA_SCOPE_FIXED_PARAMS)
+    na_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
 
-        time_data = np.linspace(0, blockDuration, num=blockSize)
-        # time_data = np.linspace(0, 1, len(traces_value[0]))
-        # initial shot
-        plt.ion()
-        figure_Li, ax = plt.subplots(figsize=(5,5))
-        line1, = ax.plot(time_data, traces_value[0])
-        line2, = ax.plot(time_data, traces_value[1]) 
-        plt.xlabel('Time (s)')
-        plt.ylabel('Voltage (mV)')
-
-        # for getting peaks
-        FP_array = np.array(traces_value[1])
-        FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = peakThreshold)
-        line3, = ax.plot(time_data[FP_peak_indices], FP_array[FP_peak_indices], 'x')
-
-        #### NA SCOPE ####
-        Na_picoscope.run_block()
-        buffers_Na = Na_picoscope.get_block_traces()
-        traces_value_Na = [val for val in buffers_Na.values()]
-
-        time_data_Na = np.linspace(0, blockDuration, num=blockSize)
-
-        plt.ion()
-        figure_Na, ax1 = plt.subplots(figsize=(5,5))
-        ax1.set_xlabel('Time (s)')
-        ax1.set_ylabel('Error signal (mV)', color = 'blue')
-        line1_Na, = ax1.plot(time_data_Na, traces_value_Na[0], color = 'blue')
-        ax1.set_ylim([-1000, 1000])
-        ax1.tick_params(axis='y', labelcolor='blue')
-        ax2 = ax1.twinx()
-        line2_Na, = ax2.plot(time_data_Na, traces_value_Na[1], color = 'red') 
-        ax2.set_xlabel('Time (s)')
-        ax2.set_ylabel('Output signal (mV) \n', color = 'red')
-        ax2.tick_params(axis='y', labelcolor='red')
-
-        figure_Na.tight_layout()
-
+    with li_picoscope, na_picoscope:
         try:
             while True:
 
@@ -158,26 +132,8 @@ def main(initial_trigger_level):
                 ########## Na scope #####################################
                 #########################################################
 
-                Na_picoscope.run_block()
-                buffers_Na = Na_picoscope.get_block_traces()
-
-                traces_value_Na = [val for val in buffers_Na.values()]
-                time_data_Na = np.linspace(0, blockDuration, num=blockSize)
-                line1_Na.set_xdata(time_data_Na)
-                line1_Na.set_ydata(traces_value_Na[0])
-                line2_Na.set_xdata(time_data_Na)
-                line2_Na.set_ydata(traces_value_Na[1])
-
-                max_trace_0 = max(traces_value_Na[0])
-                max_trace_1 = max(traces_value_Na[1])
-                ylim = min(10000, max(2000,   1.2*max(max_trace_0, max_trace_1)))
-                ax1.set_ylim([-500, 500])
-                ax2.set_ylim([-int(ylim), int(ylim)])
-                
-                # update plot
-                figure_Na.canvas.draw()
-                figure_Na.canvas.flush_events()
-                time.sleep(0.1)
+                na_ydata_traces = get_scope_traces(na_picoscope)
+                update_na_plot(na_figure, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces)
 
                 # now calculate averages:
                 mean_error_signal_avg = np.mean(traces_value_Na[0]) # this is the error signal
@@ -432,6 +388,104 @@ def main(initial_trigger_level):
 
         except KeyboardInterrupt:
             print('Picoscope logging terminated by keyboard interrupt')
+
+
+
+def initialize_ttsengines():
+    # enable text to speech: Female voice (Zira)
+    zira = pyttsx3.init()
+    voice_zira = zira.getProperty('voices')
+    zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+    # enable text to speech: Male voice (David)
+    david = pyttsx3.init()
+    voice_david = david.getProperty('voices')
+    david.setProperty('voice', voice_david[0].id) 
+    return (zira, david)
+
+
+def initialize_li_plot():
+    plt.ion()
+    li_figure, li_ax = plt.subplots(figsize = (5, 5)) 
+    li_line1, = li_ax.plot(0, 0) 
+    li_line2, = li_ax.plot(0, 0) 
+    li_line3, = li_ax.plot(0, 0, 'x') 
+    li_lines = (li_line1, li_line2, li_line3)
+    plt.xlabel("Time (s)") 
+    plt.ylabel("Voltage (mV)")
+    return (li_figure, li_ax, li_lines)
+
+
+def initialize_na_plot():
+    plt.ion()
+    na_figure, na_ax1 = plt.subplots(figsize = (5,5)) 
+    na_ax1.set_xlabel("Time (s)")
+    na_ax1.set_ylabel("Error signal (mV)", color = "blue")
+    na_line_1, = na_ax1.plot(0, 0, color = "blue") 
+    na_ax1.set_ylim([-1000, 1000])
+    na_ax1.tick_params(axis = 'y', labelcolor = 'blue')
+    na_ax2 = na_ax1.twinx()
+    na_line_2, = na_ax2.plot(0, 0, color = "red")
+    na_ax2.set_label("Time (s)") 
+    na_ax2.set_ylabel("Output signal (mV)\n", color = "red")
+    na_ax2.tick_params(axis = 'y', labelcolor = "red")
+    na_figure.tight_layout()
+    na_lines = (na_line_1, na_line_2)
+    return (na_figure, na_ax1, na_ax2, na_lines)
+
+
+
+def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces):
+    for line, ydata in zip(na_lines, na_ydata_traces):
+        line.set_xdata(na_time_data) 
+        line.set_ydata(ydata)
+    trace_max = np.max(na_ydata_traces)
+    ax2_ymax = min(NA_SCOPE_CHANNEL_B_RANGE_MV, 1.2 * trace_max)
+    na_ax1.set_ylim([-NA_SCOPE_CHANNEL_A_RANGE_MV, NA_SCOPE_CHANNEL_A_RANGE_MV])
+    na_ax2.set_ylim([-int(ax2_ymax), int(ax2_ymax)])
+    #update plot 
+    na_fig.canvas.draw() 
+    na_fig.canvas.flush_events() 
+    time.sleep(0.1)
+
+
+def initialize_scope(id, serial, channel_range_A, channel_range_B,
+                     pre_trigger_percent, block_size, block_duration, trigger_params = None):
+    picoscope = Picoscope(id, serial = serial, verbose = True) 
+    picoscope.setup_channel('A', channel_range_mv = channel_range_A) 
+    picoscope.setup_channel('B', channel_range_mv = channel_range_B)
+    if not trigger_params is None:
+        trigger_level, trigger_direction, trigger_channel = trigger_params
+        picoscope.setup_trigger(trigger_channel, trigger_threshold_mv = trigger_level, trigger_direction = trigger_direction)
+    picoscope.setup_block(block_size = block_size, block_duration = block_duration, pre_trigger_percent = pre_trigger_percent)
+    return picoscope
+
+
+def get_scope_traces(picoscope):
+    picoscope.run_block()
+    buffers = picoscope.get_block_traces()
+    return np.array([val for val in buffers.values()])
+
+
+
+HELP_ALIASES = ["help", "h", "HELP", "H", "Help"]
+def parse_clas():
+    clas = sys.argv[1:] 
+    if len(clas) > 0 and clas[1] in HELP_ALIASES:
+        help_function()
+        exit(0)
+    if len(clas) > 0:
+        trigger_level = int(clas[0]) 
+    else:
+        trigger_level = LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV
+    return trigger_level
+
+def help_function():
+    print("Program name: Picoscope Lock Monitor") 
+    print("Utility program for monitoring the sodium and lithium injection diode laser locks.") 
+    print("CLAS:")
+    print("""1 (int, optional): Trigger level. The trigger level for the injection lock monitoring scope on the Fabry-Perot piezo sweep. 
+        Default is 2000 mV.""")
+
 
 if __name__ == "__main__":
 	main(sys.argv)
