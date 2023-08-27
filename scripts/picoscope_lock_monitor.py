@@ -23,10 +23,20 @@ from satyendra.code.ps2000_wrapper_blockmode_utils import Picoscope
 #Slack config params
 SLACK_SECS_BETWEEN_WARNINGS = 300
 
-#Lock config params
+#Lock data acquisition config params
 LOCK_BLOCK_SIZE = 1000 
 LOCK_BLOCK_DURATION = 0.005
 LOCK_PRE_TRIGGER_PERCENT = 0
+
+
+#Na lock config params
+NA_LOCK_OUTPUT_THRESHOLD_MV = 9000
+NA_LOCK_ERROR_THRESHOLD_MV = 69
+
+
+#Li lock config params
+LI_LOCK_PEAK_THRESHOLD = 1000
+
 
 #Li scope config params
 LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 2000
@@ -59,6 +69,11 @@ NA_SCOPE_FIXED_PARAMS = [NA_SCOPE_ID, NA_SCOPE_SERIAL, NA_SCOPE_CHANNEL_A_RANGE_
 
 def main(initial_trigger_level):
     zira, david = initialize_ttsengines()
+
+    last_slack_warned_time = -np.inf
+    slack_unlock_status = False
+    slack_bot = slack_bot.SlackBot()
+
     li_scope_trigger_level = parse_clas()
     li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
 
@@ -93,7 +108,6 @@ def main(initial_trigger_level):
     updatePeak_avg_counter = 0
     updatePeak_avg_after = 10
     # peak threshold:
-    peakThreshold = 1000
     # good window for booster peak:
     boosterLocMin = int(blockSize*(0.002/0.006))
     boosterLocMax = int(blockSize*(0.0023/0.006))
@@ -107,10 +121,6 @@ def main(initial_trigger_level):
     triggering_issue_counter = 0
     triggering_issue_max_strikes = 5 
 
-    # setup slack bot:
-    last_slack_warned_time = -np.inf
-    slack_unlock_status = False
-    my_bot = slack_bot.SlackBot()
 
     # peak find window:
     peak_find_window = 35
@@ -134,55 +144,24 @@ def main(initial_trigger_level):
 
                 na_ydata_traces = get_scope_traces(na_picoscope)
                 update_na_plot(na_figure, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces)
-
-                # now calculate averages:
-                mean_error_signal_avg = np.mean(traces_value_Na[0]) # this is the error signal
-                mean_output_signal_avg = np.mean(traces_value_Na[1]) # this is the output signal (aux)
-
-                # the lock LED turns RED if the error signal is above 0.33 V in magnitude, but ok can set to 69
-                # OR the output signal voltage is within 10% of max outputs, which is 10 V
-                if (np.abs(mean_error_signal_avg) > 69) or (np.abs(mean_output_signal_avg) > 9000 ):
-                    # triggering too soon, gotta trigger later
-                        msg = 'Guys, Sodium unlocked!'
-                        david.setProperty('voice', voice_david[0].id) # index = 0 for male and 1 for female
-                        david.say(msg)
-                        david.runAndWait()
-
-                        current_time = time.time()
-                        slack_unlock_status = True
-                        if current_time - last_slack_warned_time > SLACK_SECS_BETWEEN_WARNINGS:
-                            msg_string = "Guys, the Na laser unlocked!"
-                            my_bot.post_message(msg_string, mention_all = True)
-                            last_slack_warned_time = current_time
-                else:
-                    slack_unlock_status = False
-
+                na_has_error = detect_na_error(na_ydata_traces)
+                if na_has_error:
+                    NA_ERROR_MESSAGE_SPOKEN = "Guys, sodium unlocked!"
+                    NA_ERROR_MESSAGE_SLACK = "Guys, the Na laser unlocked"
+                    tts_engine_say(david, NA_ERROR_MESSAGE_SPOKEN)
+                    slack_unlock_status = True
+                    last_slack_warned_time = slack_warn(NA_ERROR_MESSAGE_SLACK, slack_bot,
+                                                        last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, mention_all = True, 
+                                                        override_interval = False)
                 #########################################################
                 ########## Li scope #####################################
                 #########################################################
 
-                Li_picoscope.run_block()
-                buffers = Li_picoscope.get_block_traces()
-
-                traces_value = [val for val in buffers.values()]
-                time_data = np.linspace(0, blockDuration, num=blockSize)
-                line1.set_xdata(time_data)
-                line1.set_ydata(traces_value[0])
-                line2.set_xdata(time_data)
-                line2.set_ydata(traces_value[1])
-
-                ###############################
-                # find peaks
-                FP_array = np.array(traces_value[1])
-                FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = peakThreshold)
-                line3.set_xdata(time_data[FP_peak_indices])
-                line3.set_ydata(FP_array[FP_peak_indices])
-
-                ###############################
-                # update plot
-                figure_Li.canvas.draw()
-                figure_Li.canvas.flush_events()
-                time.sleep(0.1)
+                li_ydata_traces = get_scope_traces(li_picoscope)
+                li_fp_trace = li_ydata_traces[1]
+                fp_peak_indices, fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
+                update_li_plot(li_figure, li_ax, li_lines, li_time_data, li_ydata_traces, fp_peak_indices)
+                li_fp_errors_array = detect_li_error()
 
                 ###############################
                 # first, there should be exactly four peaks
@@ -402,6 +381,9 @@ def initialize_ttsengines():
     david.setProperty('voice', voice_david[0].id) 
     return (zira, david)
 
+def tts_engine_say(engine, msg):
+    engine.say(msg)
+    engine.runAndWait()
 
 def initialize_li_plot():
     plt.ion()
@@ -433,7 +415,6 @@ def initialize_na_plot():
     return (na_figure, na_ax1, na_ax2, na_lines)
 
 
-
 def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces):
     for line, ydata in zip(na_lines, na_ydata_traces):
         line.set_xdata(na_time_data) 
@@ -446,6 +427,47 @@ def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_trac
     na_fig.canvas.draw() 
     na_fig.canvas.flush_events() 
     time.sleep(0.1)
+
+                # Li_picoscope.run_block()
+                # buffers = Li_picoscope.get_block_traces()
+
+                # traces_value = [val for val in buffers.values()]
+                # time_data = np.linspace(0, blockDuration, num=blockSize)
+                # line1.set_xdata(time_data)
+                # line1.set_ydata(traces_value[0])
+                # line2.set_xdata(time_data)
+                # line2.set_ydata(traces_value[1])
+
+                # ###############################
+                # # find peaks
+                # FP_array = np.array(traces_value[1])
+                # FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = peakThreshold)
+                # line3.set_xdata(time_data[FP_peak_indices])
+                # line3.set_ydata(FP_array[FP_peak_indices])
+
+                # ###############################
+                # # update plot
+                # figure_Li.canvas.draw()
+                # figure_Li.canvas.flush_events()
+                # time.sleep(0.1)
+
+def update_li_plot(li_fig, li_ax, li_lines, li_time_data, li_ydata_traces, li_fp_peak_indices):
+    sweep_line, fp_line, peaks_line = li_lines
+    sweep_ydata, fp_ydata = li_ydata_traces
+    peaks_ydata = fp_ydata[li_fp_peak_indices]
+    peaks_time_data = li_time_data[li_fp_peak_indices] 
+
+    sweep_line.set_xdata(li_time_data) 
+    sweep_line.set_ydata(sweep_ydata) 
+    fp_line.set_xdata(li_time_data) 
+    fp_line.set_ydata(fp_ydata) 
+    peaks_line.set_xdata(peaks_time_data) 
+    peaks_line.set_ydata(peaks_ydata) 
+
+    li_fig.canvas.draw() 
+    li_fig.canvas.flush_events() 
+    time.sleep(0.1)
+    
 
 
 def initialize_scope(id, serial, channel_range_A, channel_range_B,
@@ -465,6 +487,21 @@ def get_scope_traces(picoscope):
     buffers = picoscope.get_block_traces()
     return np.array([val for val in buffers.values()])
 
+
+def detect_na_error(na_ydata_traces):
+    error_signal_values, output_signal_values = na_ydata_traces 
+    mean_error_signal = np.mean(error_signal_values) 
+    mean_output_signal = np.mean(output_signal_values) 
+    return np.abs(mean_error_signal) > NA_LOCK_ERROR_THRESHOLD_MV or np.abs(mean_output_signal) > NA_LOCK_OUTPUT_THRESHOLD_MV
+
+
+def slack_warn(msg, slack_bot, last_slack_warned_time, warning_interval, 
+               mention_all = False, override_interval = False):
+    current_time = time.time() 
+    if override_interval or current_time - last_slack_warned_time > warning_interval:
+        last_slack_warned_time = current_time 
+        slack_bot.post_message(msg, mention_all = mention_all)
+    return last_slack_warned_time
 
 
 HELP_ALIASES = ["help", "h", "HELP", "H", "Help"]
