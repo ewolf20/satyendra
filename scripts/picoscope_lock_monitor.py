@@ -36,6 +36,10 @@ NA_LOCK_ERROR_THRESHOLD_MV = 69
 
 #Li lock config params
 LI_LOCK_PEAK_THRESHOLD = 1000
+LI_LOCK_BOOSTER_MIN_LOCATION = int(LOCK_BLOCK_SIZE * (0.002 / 0.006))
+LI_LOCK_BOOSTER_MAX_LOCATION = int(LOCK_BLOCK_SIZE * (0.0023 / 0.006))
+LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT = 100
+
 
 
 #Li scope config params
@@ -109,8 +113,6 @@ def main(initial_trigger_level):
     updatePeak_avg_after = 10
     # peak threshold:
     # good window for booster peak:
-    boosterLocMin = int(blockSize*(0.002/0.006))
-    boosterLocMax = int(blockSize*(0.0023/0.006))
 
     boosterPeak_avg_new = 0
     slowerPeak_avg_new = 0
@@ -502,6 +504,120 @@ def slack_warn(msg, slack_bot, last_slack_warned_time, warning_interval,
         last_slack_warned_time = current_time 
         slack_bot.post_message(msg, mention_all = mention_all)
     return last_slack_warned_time
+
+
+
+def adjust_li_trigger_location(li_scope, li_scope_trigger_level, booster_peak_index, increment, tts_engine):
+    if booster_peak_index < LI_LOCK_BOOSTER_MIN_LOCATION:
+        trigger_adjusted = True
+        spoken_msg = "Triggering too late. Adjusting." 
+        li_scope_trigger_level -= increment
+    elif booster_peak_index > LI_LOCK_BOOSTER_MAX_LOCATION: 
+        trigger_adjusted = True
+        spoken_msg = "Triggering too soon. Adjusting."
+        tts_engine_say(tts_engine, spoken_msg)
+        li_scope_trigger_level += increment
+    else:
+        trigger_adjusted = False
+    if trigger_adjusted:
+        tts_engine_say(tts_engine, spoken_msg)
+        li_scope.setup_trigger(LI_SCOPE_TRIGGER_CHANNEL, trigger_threshold_mv = li_scope_trigger_level, 
+                                trigger_direction = LI_SCOPE_TRIGGER_DIRECTION)
+        print("Trigger level: {0:.1f} mV".format(li_scope_trigger_level))
+    return (trigger_adjusted, li_scope_trigger_level)
+
+
+
+# if initialization_counter < initialization_counter_MAX:
+#                     if len(FP_peak_indices) == 4:
+#                         # store peak values
+#                         boosterPeak = int(FP_array[FP_peak_indices[0]])
+#                         slowerPeak  = int(FP_array[FP_peak_indices[1]])
+#                         repumpPeak  = int(FP_array[FP_peak_indices[2]])
+#                         MOTPeak     = int(FP_array[FP_peak_indices[3]])
+
+#                         # store peak locations
+#                         boosterLoc  = FP_peak_indices[0]
+#                         slowerLoc   = FP_peak_indices[1]
+#                         repumpLoc   = FP_peak_indices[2]
+#                         MOTLoc      = FP_peak_indices[3]
+
+#                         ########## INITIALIZE #############:
+#                         if boosterLoc <= boosterLocMax and boosterLoc >= boosterLocMin:
+#                             # if booster in good location:
+#                             print('Initializing: ' + str(initialization_counter+1) + '/' + str(initialization_counter_MAX))
+#                             # AVERAGE HEIGHTS
+#                             boosterPeak_avg += boosterPeak/initialization_counter_MAX
+#                             slowerPeak_avg += slowerPeak/initialization_counter_MAX
+#                             repumpPeak_avg += repumpPeak/initialization_counter_MAX
+#                             MOTPeak_avg += MOTPeak/initialization_counter_MAX
+#                             # AVERAGE SPACINGS to booster:
+#                             booster_to_slower += abs(slowerLoc - boosterLoc)/initialization_counter_MAX
+#                             booster_to_repump += abs(repumpLoc - boosterLoc)/initialization_counter_MAX
+#                             booster_to_MOT    += abs(MOTLoc    - boosterLoc)/initialization_counter_MAX
+#                             initialization_counter += 1
+#                         else:
+#                             if boosterLoc >= boosterLocMax:
+#                                 msg = 'Triggering too soon. Adjusting'
+#                                 zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+#                                 zira.say(msg)
+#                                 zira.runAndWait()
+#                                 # do sth
+#                                 triggerLevel += 100
+#                                 Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+#                                 print('Trigger level: ' + str(triggerLevel))
+
+#                             elif boosterLoc <= boosterLocMin:
+#                                 msg = 'Triggering too late. Adjusting'
+#                                 zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+#                                 zira.say(msg)
+#                                 zira.runAndWait()
+#                                 # do sth
+#                                 triggerLevel -= 100
+#                                 Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
+#                                 print('Trigger level: ' + str(triggerLevel))
+#                     else:
+#                         # if dont see exactly four peaks...
+#                         if len(FP_peak_indices) >= 5:
+#                             msg = 'Bad trigger'
+#                             zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+#                             zira.say(msg)
+#                             zira.runAndWait()
+#                         else:
+#                             msg = 'Not locked'
+#                             zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
+#                             zira.say(msg)
+#                             zira.runAndWait()
+                
+#                 else:
+
+
+
+def initialize_li_fp_peaks(li_fp_peak_indices, li_fp_ydata, initialization_samples, 
+                           li_scope, li_scope_trigger_level, tts_engine):
+    initialization_counter = 0
+    average_peak_indices = np.zeros(4) 
+    average_peak_values = np.zeros(4)
+    while initialization_counter < initialization_samples:
+        if len(li_fp_peak_indices) == 4:
+            booster_peak_index, *_ = li_fp_peak_indices 
+            li_fp_peak_values = li_fp_ydata[li_fp_peak_indices]
+            trigger_adjusted, li_scope_trigger_level = adjust_li_trigger_location(li_scope, li_scope_trigger_level, 
+                                                                                  booster_peak_index, LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, 
+                                                                                  tts_engine)
+            if not trigger_adjusted:
+                initialization_counter += 1
+                print("Initializing: {0:d}/{1:d}".format(initialization_counter, initialization_samples)) 
+                average_peak_indices += li_fp_peak_indices / initialization_samples 
+                average_peak_values += li_fp_peak_values / initialization_samples
+        else:
+            if len(li_fp_peak_indices) > 4:
+                spoken_message = "Bad trigger"
+            else:
+                spoken_message = "Not locked" 
+            tts_engine_say(tts_engine, spoken_message)
+    
+    return (li_scope_trigger_level)
 
 
 HELP_ALIASES = ["help", "h", "HELP", "H", "Help"]
