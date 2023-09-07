@@ -45,6 +45,8 @@ LI_LOCK_PEAK_HEIGHT_MIN_RATIO = 0.9
 
 LI_LOCK_PEAK_UPDATING_CONSTANT = 0.01
 
+LI_LOCK_ERROR_TOLERANCE = 3
+
 
 #Li scope config params
 LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 2000
@@ -94,50 +96,6 @@ def main(initial_trigger_level):
     li_scope_trigger_level = parse_clas()
     li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
 
-    initialization_counter = 0
-    initialization_counter_MAX = 20
-
-    # average peak heights
-    boosterPeak_avg = 0
-    slowerPeak_avg = 0
-    repumpPeak_avg = 0
-    MOTPeak_avg = 0
-    # AVERAGE SPACINGS to booster:
-    booster_to_slower = 0  # 130
-    booster_to_repump = 0  # 280
-    booster_to_MOT    = 0  # 400
-    # lock status
-    slowerLocked = 0
-    repumpLocked = 0
-    MOTLocked = 0
-    # old peaks to compare in code
-    slowerPeakOld = 0
-    repumpPeakOld = 0
-    MOTPeakOld = 0 
-    # quality factor:
-    quality = 0.9
-    # print lock status:
-    printLockStatus_COUNTER = 0
-    printLockStatus_after = 2
-    # lock max strikes
-    lock_max_strikes = 5
-    # update avg counter params 
-    updatePeak_avg_counter = 0
-    updatePeak_avg_after = 10
-    # peak threshold:
-    # good window for booster peak:
-
-    boosterPeak_avg_new = 0
-    slowerPeak_avg_new = 0
-    repumpPeak_avg_new = 0
-    MOTPeak_avg_new = 0
-
-    # triggering issue:
-    triggering_issue_counter = 0
-    triggering_issue_max_strikes = 5 
-
-
-
     li_figure, li_ax, li_lines = initialize_li_plot()
     na_figure, na_ax1, na_ax2, na_lines = initialize_na_plot()
 
@@ -151,15 +109,17 @@ def main(initial_trigger_level):
         try:
             li_scope_trigger_level, reference_peak_indices, reference_peak_values = initialize_li_fp_peaks(LI_FP_PEAK_INITIALIZATION_SAMPLES, 
                                                                                     li_picoscope, li_scope_trigger_level, zira)
+            li_fp_peak_error_count = np.zeros(len(reference_peak_indices))
             while True:
 
-                #########################################################
-                ########## Na scope #####################################
-                #########################################################
+                #Na scope
 
                 na_ydata_traces = get_scope_traces(na_picoscope)
                 update_na_plot(na_figure, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces)
                 na_has_error = detect_na_error(na_ydata_traces)
+
+                #Na error handling
+
                 if na_has_error:
                     NA_ERROR_MESSAGE_SPOKEN = "Guys, sodium unlocked!"
                     NA_ERROR_MESSAGE_SLACK = "Guys, the Na laser unlocked"
@@ -177,15 +137,14 @@ def main(initial_trigger_level):
                 fp_peak_indices, fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
                 update_li_plot(li_figure, li_ax, li_lines, li_time_data, li_ydata_traces, fp_peak_indices)
 
-                li_errors = detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, reference_peak_values)
+                #Li error handling
+
+                li_errors = detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, reference_peak_values)                
                 if not np.any(li_errors):
-
+                    li_fp_peak_error_count -= 1
                     fp_peak_values = li_fp_trace[fp_peak_indices]
-                    #If no errors are detected, drag the reference indices and heights to the new values by a small amount 
-                    reference_peak_indices += LI_LOCK_PEAK_UPDATING_CONSTANT * (fp_peak_indices - reference_peak_indices) 
-                    reference_peak_values += LI_LOCK_PEAK_UPDATING_CONSTANT * (fp_peak_values - reference_peak_values) 
-
-                    #Update reference values by a small amount to track slow drifts in the fabry perot
+                    reference_peak_indices, reference_peak_values = update_reference_peaks(fp_peak_indices, reference_peak_indices, 
+                                                                                           fp_peak_values, reference_peak_values)
                     booster_peak_index = fp_peak_indices[0]
                     trigger_adjusted, adjusted_li_scope_trigger_level = adjust_li_trigger_location(li_picoscope, li_scope_trigger_level, booster_peak_index, 
                                                                        LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, zira)
@@ -195,148 +154,28 @@ def main(initial_trigger_level):
                         trigger_adjust_index_correction = calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigger_adjust_increment_mV)
                         reference_peak_indices = reference_peak_indices + trigger_adjust_index_correction
                     li_scope_trigger_level = adjusted_li_scope_trigger_level
-                
-
-
-
-                if len(FP_peak_indices) >= 1: 
-                    # find peaks based on location relative to booster now:
-                    boosterLoc = FP_peak_indices[0]
-                    slowerPeak = int(max(FP_array[ boosterLoc - peak_find_window + int(booster_to_slower) : boosterLoc + peak_find_window + int(booster_to_slower)]))
-                    repumpPeak = int(max(FP_array[ boosterLoc - peak_find_window + int(booster_to_repump) : boosterLoc + peak_find_window + int(booster_to_repump)]))
-                    MOTPeak = int(max(FP_array[ boosterLoc - peak_find_window + int(booster_to_MOT) : boosterLoc + peak_find_window + int(booster_to_MOT)]))
-
-                    # turn average quantities into integers:
-                    boosterPeak_avg = int(boosterPeak_avg)
-                    slowerPeak_avg = int(slowerPeak_avg)
-                    repumpPeak_avg = int(repumpPeak_avg)
-                    MOTPeak_avg = int(MOTPeak_avg)
-
-                    # now monitor logic
-                    if boosterLoc >= boosterLocMax:
-                        msg = 'Triggering too soon. Adjusting'
-                        zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-                        zira.say(msg)
-                        zira.runAndWait()
-                        # do sth
-                        triggerLevel += 25
-                        Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
-
-                    elif boosterLoc <= boosterLocMin:
-                        msg = 'Triggering too late. Adjusting'
-                        zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-                        zira.say(msg)
-                        zira.runAndWait()
-                        # do sth
-                        triggerLevel -= 25
-                        Li_picoscope.setup_trigger('A',trigger_threshold_mv=triggerLevel, trigger_direction=0)
-
-                    # SLOWER
-                    if (slowerPeak < quality*slowerPeak_avg):
-                        if (slowerLocked < lock_max_strikes):
-                            if (slowerPeakOld < quality*slowerPeak_avg):
-                                slowerLocked+=1 # only add if previous shot also bad
-                            else:
-                                slowerLocked=0 # if last shot was good then reset, probably noise                 
-                    else: # if Peak is good, then reset strikes
-                        slowerLocked = 0
-                        
-                    # repump
-                    if (repumpPeak < quality*repumpPeak_avg):
-                        if (repumpLocked < lock_max_strikes):
-                            if (repumpPeakOld < quality*repumpPeak_avg):
-                                repumpLocked+=1 # only add if previous shot also bad
-                            else:
-                                repumpLocked = 0 # if last shot was good then reset, probably noise                 
-                    else: # if Peak is good, then reset strikes
-                        repumpLocked = 0
-
-                    # MOT
-                    if (MOTPeak < quality*MOTPeak_avg):
-                        if (MOTLocked < lock_max_strikes):
-                            if (MOTPeakOld < quality*MOTPeak_avg):
-                                MOTLocked+=1 # only add if previous shot also bad
-                            else:
-                                MOTLocked = 0 # if last shot was good then reset, probably noise                 
-                    else: # if Peak is good, then reset strikes
-                        MOTLocked = 0
-
-                    # the end
-                    boosterPeakOld = boosterPeak
-                    slowerPeakOld = slowerPeak
-                    repumpPeakOld = repumpPeak
-                    MOTPeakOld = MOTPeak
-
-                    # print status
-                    if (printLockStatus_COUNTER > printLockStatus_after):                                                    
-                        printLockStatus_COUNTER = 0 # reset
-                        slower_unlocked = (slowerLocked == lock_max_strikes)
-                        MOT_unlocked = (MOTLocked == lock_max_strikes) 
-                        repump_unlocked = (repumpLocked == lock_max_strikes)
-                        msg_list = []
-                        if slower_unlocked:
-                            msg_list.append("slower") 
-                        if repump_unlocked:
-                            msg_list.append("repump")
-                        if MOT_unlocked:
-                            msg_list.append("mott")
-                        if slower_unlocked or MOT_unlocked or repump_unlocked:
-                            msg = ' '.join(msg_list)
-                            zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-                            zira.say(msg)
-                            zira.runAndWait()
-                            current_time = time.time()
-                            slack_unlock_status = True
-                            if current_time - last_slack_warned_time > SLACK_SECS_BETWEEN_WARNINGS:
-                                msg_string = "The following injection locked diodes appear to be unlocked: "
-                                for name in msg_list:
-                                    msg_string += name + ", "
-                                my_bot.post_message(msg_string, mention_all = True)
-                                last_slack_warned_time = current_time
-                        elif slack_unlock_status:
-                            my_bot.post_message("Everything's fine now.") 
-                            slack_unlock_status = False
-                            last_slack_warned_time = -np.inf
-                    else:
-                        printLockStatus_COUNTER += 1
-
-                    # auto update MAX values, only if everything is locked
-                    # act only for every "updatePeak_avg_after" iterations, to stay conservative
-                    if not any([slowerLocked, repumpLocked, MOTLocked]): 
-                        if updatePeak_avg_counter >= updatePeak_avg_after:
-
-                            boosterPeak_avg = int(boosterPeak_avg_new)
-                            slowerPeak_avg = int(slowerPeak_avg_new)
-                            repumpPeak_avg = int(repumpPeak_avg_new)
-                            MOTPeak_avg = int(MOTPeak_avg_new)
-                            
-                            # reset everything
-                            updatePeak_avg_counter = 0 
-                            boosterPeak_avg_new = 0
-                            slowerPeak_avg_new = 0
-                            repumpPeak_avg_new = 0
-                            MOTPeak_avg_new = 0
-                        else:
-                            boosterPeak_avg_new += boosterPeak/updatePeak_avg_after
-                            slowerPeak_avg_new += slowerPeak/updatePeak_avg_after
-                            repumpPeak_avg_new += repumpPeak/updatePeak_avg_after
-                            MOTPeak_avg_new += MOTPeak/updatePeak_avg_after
-                            updatePeak_avg_counter += 1
-
                 else:
-                    # this means everything's unlocked most likely
-                    msg = "Something is wrong. Please check Lithium table."
-                    zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-                    zira.say(msg)
-                    zira.runAndWait()
-
-                    current_time = time.time()
+                    li_fp_peak_error_count += np.where(1, 0, li_errors)
+                li_fp_peak_error_count = np.clip(li_fp_peak_error_count, 0, 2 * LI_LOCK_ERROR_TOLERANCE)
+                fp_peak_has_error_indices = np.nonzero(li_fp_peak_error_count > LI_LOCK_ERROR_TOLERANCE)
+                if len(fp_peak_has_error_indices) > 0:
+                    error_peak_names_list = []
+                    for fp_peak_has_error_index in fp_peak_has_error_indices:
+                        error_peak_names_list.append(FP_PEAK_NAMES[fp_peak_has_error_index])
+                    spoken_message_string = " ".join(error_peak_names_list)
+                    tts_engine_say(zira, spoken_message_string)
+                    slack_message_string = "The following diodes appear to be unlocked: {0}".format(", ".join(error_peak_names_list))
+                    last_slack_warned_time = slack_warn(slack_message_string, slack_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                                                        mention_all = True, override_interval = False)
                     slack_unlock_status = True
-                    if current_time - last_slack_warned_time > SLACK_SECS_BETWEEN_WARNINGS:
-                        msg_string = "Something is wrong. Please check Lithium table."
-                        my_bot.post_message(msg_string, mention_all = True)
-                        last_slack_warned_time = current_time
 
+                #Broadcast an all-clear if all errors are cleared
+
+                if slack_unlock_status and not na_has_error and len(fp_peak_has_error_indices) == 0:
+                    slack_unlock_status = False 
+                    all_clear_string = "Everything's fine now."
+                    last_slack_warned_time = slack_warn(all_clear_string, slack_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                                                        mention_all = False, override_interval = True) 
         except KeyboardInterrupt:
             print('Picoscope logging terminated by keyboard interrupt')
 
@@ -496,6 +335,10 @@ def calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigge
     reference_sweep_value_index_change = adjusted_reference_sweep_value_index - reference_sweep_value_index 
     return reference_sweep_value_index_change
 
+def update_reference_peaks(fp_peak_indices, reference_peak_indices, fp_peak_values, reference_peak_values):
+    reference_peak_indices += LI_LOCK_PEAK_UPDATING_CONSTANT * (fp_peak_indices - reference_peak_indices) 
+    reference_peak_values += LI_LOCK_PEAK_UPDATING_CONSTANT * (fp_peak_values - reference_peak_values)
+    return reference_peak_indices, reference_peak_values
 
 def slack_warn(msg, slack_bot, last_slack_warned_time, warning_interval, 
                mention_all = False, override_interval = False):
