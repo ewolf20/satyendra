@@ -11,6 +11,7 @@ import ctypes
 import pyttsx3 
 
 
+
 PATH_TO_REPOSITORIES_FOLDER = "C:/Users/BEC1 Top/Repositories"
 sys.path.insert(0, PATH_TO_REPOSITORIES_FOLDER)
 
@@ -23,7 +24,7 @@ LOCK_BLOCK_DURATION = 0.005
 LOCK_PRE_TRIGGER_PERCENT = 0
 
 #Li scope config params
-LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 2000
+LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 0
 
 LI_SCOPE_ID = 0
 LI_SCOPE_SERIAL = "J0247/1191" 
@@ -41,11 +42,16 @@ LI_SCOPE_TRIGGER_FIXED_PARAMS = [LI_SCOPE_TRIGGER_DIRECTION, LI_SCOPE_TRIGGER_CH
 
 
 def main():
-    li_scope_trigger_level = 0 
+    li_scope_trigger_level = 100
     li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
-    li_picoscope = initialize_scope(*LI_SCOPE_FIXED_PARAMS, trigger_params = li_scope_trigger_params)
+    # li_picoscope = initialize_scope(*LI_SCOPE_FIXED_PARAMS, trigger_params = li_scope_trigger_params)
+    li_picoscope = initialize_scope(*LI_SCOPE_FIXED_PARAMS)
+
     print("Getting traces")
     traces = get_scope_traces(li_picoscope)
+    plt.plot(traces[0])
+    plt.plot(traces[1])
+    plt.show()
     print("Got traces")
 
 
