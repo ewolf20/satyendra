@@ -91,7 +91,7 @@ def main(initial_trigger_level):
 
     last_slack_warned_time = -np.inf
     slack_unlock_status = False
-    slack_bot = slack_bot.SlackBot()
+    my_bot = slack_bot.SlackBot()
 
     li_scope_trigger_level = parse_clas()
     li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
@@ -107,6 +107,7 @@ def main(initial_trigger_level):
 
     with li_picoscope, na_picoscope:
         try:
+            print("Made it to this point")
             li_scope_trigger_level, reference_peak_indices, reference_peak_values = initialize_li_fp_peaks(LI_FP_PEAK_INITIALIZATION_SAMPLES, 
                                                                                     li_picoscope, li_scope_trigger_level, zira)
             li_fp_peak_error_count = np.zeros(len(reference_peak_indices))
@@ -125,7 +126,7 @@ def main(initial_trigger_level):
                     NA_ERROR_MESSAGE_SLACK = "Guys, the Na laser unlocked"
                     tts_engine_say(david, NA_ERROR_MESSAGE_SPOKEN)
                     slack_unlock_status = True
-                    last_slack_warned_time = slack_warn(NA_ERROR_MESSAGE_SLACK, slack_bot,
+                    last_slack_warned_time = slack_warn(NA_ERROR_MESSAGE_SLACK, my_bot,
                                                         last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, mention_all = True, 
                                                         override_interval = False)
                     
@@ -165,7 +166,7 @@ def main(initial_trigger_level):
                     spoken_message_string = " ".join(error_peak_names_list)
                     tts_engine_say(zira, spoken_message_string)
                     slack_message_string = "The following diodes appear to be unlocked: {0}".format(", ".join(error_peak_names_list))
-                    last_slack_warned_time = slack_warn(slack_message_string, slack_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                    last_slack_warned_time = slack_warn(slack_message_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
                                                         mention_all = True, override_interval = False)
                     slack_unlock_status = True
 
@@ -174,7 +175,7 @@ def main(initial_trigger_level):
                 if slack_unlock_status and not na_has_error and len(fp_peak_has_error_indices) == 0:
                     slack_unlock_status = False 
                     all_clear_string = "Everything's fine now."
-                    last_slack_warned_time = slack_warn(all_clear_string, slack_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                    last_slack_warned_time = slack_warn(all_clear_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
                                                         mention_all = False, override_interval = True) 
         except KeyboardInterrupt:
             print('Picoscope logging terminated by keyboard interrupt')
@@ -294,8 +295,10 @@ def initialize_scope(id, serial, channel_range_A, channel_range_B,
 
 
 def get_scope_traces(picoscope):
+    print("Getting scope traces")
     picoscope.run_block()
     buffers = picoscope.get_block_traces()
+    print("Got 'em")
     return np.array([val for val in buffers.values()])
 
 
@@ -340,12 +343,12 @@ def update_reference_peaks(fp_peak_indices, reference_peak_indices, fp_peak_valu
     reference_peak_values += LI_LOCK_PEAK_UPDATING_CONSTANT * (fp_peak_values - reference_peak_values)
     return reference_peak_indices, reference_peak_values
 
-def slack_warn(msg, slack_bot, last_slack_warned_time, warning_interval, 
+def slack_warn(msg, my_bot, last_slack_warned_time, warning_interval, 
                mention_all = False, override_interval = False):
     current_time = time.time() 
     if override_interval or current_time - last_slack_warned_time > warning_interval:
         last_slack_warned_time = current_time 
-        slack_bot.post_message(msg, mention_all = mention_all)
+        my_bot.post_message(msg, mention_all = mention_all)
     return last_slack_warned_time
 
 
