@@ -51,26 +51,24 @@ LI_LOCK_ERROR_TOLERANCE = 3
 #Li scope config params
 LI_SCOPE_DEFAULT_TRIGGER_LEVEL_MV = 2000
 
-LI_SCOPE_ID = 0
-LI_SCOPE_SERIAL = "J0247/1191" 
+LI_SCOPE_SERIAL = b'JO247/1191' 
 LI_SCOPE_CHANNEL_A_RANGE_MV = 10000
 LI_SCOPE_CHANNEL_B_RANGE_MV = 5000
 LI_SCOPE_TRIGGER_DIRECTION = 0
 LI_SCOPE_TRIGGER_CHANNEL = "A"
 
-LI_SCOPE_FIXED_PARAMS = [LI_SCOPE_ID, LI_SCOPE_SERIAL, LI_SCOPE_CHANNEL_A_RANGE_MV, 
+LI_SCOPE_FIXED_PARAMS = [LI_SCOPE_SERIAL, LI_SCOPE_CHANNEL_A_RANGE_MV, 
                    LI_SCOPE_CHANNEL_B_RANGE_MV, 
                    LOCK_PRE_TRIGGER_PERCENT, LOCK_BLOCK_SIZE, LOCK_BLOCK_DURATION]
 
 LI_SCOPE_TRIGGER_FIXED_PARAMS = [LI_SCOPE_TRIGGER_DIRECTION, LI_SCOPE_TRIGGER_CHANNEL]
 
 #Na scope config params 
-NA_SCOPE_ID = 1
-NA_SCOPE_SERIAL = "J0247/0361"
+NA_SCOPE_SERIAL = b'JO247/0361'
 NA_SCOPE_CHANNEL_A_RANGE_MV = 500 
 NA_SCOPE_CHANNEL_B_RANGE_MV = 10000
 
-NA_SCOPE_FIXED_PARAMS = [NA_SCOPE_ID, NA_SCOPE_SERIAL, NA_SCOPE_CHANNEL_A_RANGE_MV, 
+NA_SCOPE_FIXED_PARAMS = [NA_SCOPE_SERIAL, NA_SCOPE_CHANNEL_A_RANGE_MV, 
                          NA_SCOPE_CHANNEL_B_RANGE_MV, LOCK_PRE_TRIGGER_PERCENT, LOCK_BLOCK_SIZE, 
                          LOCK_BLOCK_DURATION]
 
@@ -88,6 +86,8 @@ FP_PEAK_NAMES = ["Booster", "Slower", "Repump", "Mott"]
 
 def main(initial_trigger_level):
     zira, david = initialize_ttsengines()
+    tts_engine_say(zira, "Hello") 
+    tts_engine_say(david, "Hello")
 
     last_slack_warned_time = -np.inf
     slack_unlock_status = False
@@ -240,29 +240,6 @@ def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_trac
     na_fig.canvas.flush_events() 
     time.sleep(0.1)
 
-                # Li_picoscope.run_block()
-                # buffers = Li_picoscope.get_block_traces()
-
-                # traces_value = [val for val in buffers.values()]
-                # time_data = np.linspace(0, blockDuration, num=blockSize)
-                # line1.set_xdata(time_data)
-                # line1.set_ydata(traces_value[0])
-                # line2.set_xdata(time_data)
-                # line2.set_ydata(traces_value[1])
-
-                # ###############################
-                # # find peaks
-                # FP_array = np.array(traces_value[1])
-                # FP_peak_indices, FP_peak_properties = find_peaks(FP_array, height = peakThreshold)
-                # line3.set_xdata(time_data[FP_peak_indices])
-                # line3.set_ydata(FP_array[FP_peak_indices])
-
-                # ###############################
-                # # update plot
-                # figure_Li.canvas.draw()
-                # figure_Li.canvas.flush_events()
-                # time.sleep(0.1)
-
 def update_li_plot(li_fig, li_ax, li_lines, li_time_data, li_ydata_traces, li_fp_peak_indices):
     sweep_line, fp_line, peaks_line = li_lines
     sweep_ydata, fp_ydata = li_ydata_traces
@@ -282,9 +259,9 @@ def update_li_plot(li_fig, li_ax, li_lines, li_time_data, li_ydata_traces, li_fp
     
 
 
-def initialize_scope(id, serial, channel_range_A, channel_range_B,
+def initialize_scope(serial, channel_range_A, channel_range_B,
                      pre_trigger_percent, block_size, block_duration, trigger_params = None):
-    picoscope = Picoscope(id, serial = serial, verbose = True) 
+    picoscope = Picoscope(serial = serial, verbose = True) 
     picoscope.setup_channel('A', channel_range_mv = channel_range_A) 
     picoscope.setup_channel('B', channel_range_mv = channel_range_B)
     if not trigger_params is None:
