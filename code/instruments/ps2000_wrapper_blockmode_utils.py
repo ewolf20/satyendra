@@ -10,19 +10,18 @@ from multiprocessing import Process
 
 
 class Picoscope:
-    def __init__(self, handle, serial=None, verbose=False):
+    def __init__(self, serial=None, verbose=False):
         """
         Args:
             - handle: unique int to identify each picoscope connected to the PC
             - serial: 10-digit string typically found on the back of the device between two asterisks
         """
         self.verbose = verbose
-        # Create c_handle and status ready for use
-        self.c_handle = ctypes.c_int16(handle)
         self.status = {}
-
-        self.status["openUnit"] = ps.ps2000_open_unit()
-        
+        #Hack because ps2000_open_unit does not support opening with serial
+        #self.device is unused except to get c_handle!
+        self.device = ps.open_unit(serial = serial)
+        self.c_handle = ctypes.c_int16(self.device.handle)
         self.buffers = {}
         self.chARange = 7
         self.chBRange = 7
@@ -38,7 +37,6 @@ class Picoscope:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         try:
-
             self.status["stop"] = ps.ps2000_stop(self.c_handle)
             assert_pico2000_ok(self.status["stop"])
             self.status["close"] = ps.ps2000_close_unit(self.c_handle)
@@ -107,8 +105,6 @@ class Picoscope:
             self.chBRange = channel_range
         else:
             print('Invalid Channel Name!')
-
-        self.c_handle = ctypes.c_int16(self.status["openUnit"])
 
         self.status["setCh"+channel_name] = ps.ps2000_set_channel(self.c_handle, channel, 1, coupling_DC, channel_range)
         assert_pico2000_ok(self.status["setCh"+channel_name])
