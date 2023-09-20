@@ -1,5 +1,7 @@
 # Huan Q Bui, BEC1@MIT
 # Last updated: 08:01 pm, Mar 30, 2023
+# Eric A Wolf
+# Refactor: 2:09 PM, Sep 20, 2023
 
 
 import numpy as np
