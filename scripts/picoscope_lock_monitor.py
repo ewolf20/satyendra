@@ -30,8 +30,8 @@ LOCK_PRE_TRIGGER_PERCENT = 0
 
 
 #Na lock config params
-NA_LOCK_OUTPUT_THRESHOLD_MV = 9000
-NA_LOCK_ERROR_THRESHOLD_MV = 69
+NA_LOCK_OUTPUT_THRESHOLD_MV = 7000
+NA_LOCK_ERROR_THRESHOLD_MV = 25
 
 
 #Li lock config params
@@ -85,9 +85,7 @@ FP_PEAK_NAMES = ["Booster", "Slower", "Repump", "Mott"]
 
 
 def main(initial_trigger_level):
-    zira, david = initialize_ttsengines()
-    tts_engine_say(zira, "Hello") 
-    tts_engine_say(david, "Hello")
+    tts_engine = pyttsx3.init()
 
     last_slack_warned_time = -np.inf
     slack_unlock_status = False
@@ -95,28 +93,36 @@ def main(initial_trigger_level):
 
     li_scope_trigger_level = parse_clas()
     li_scope_trigger_params = [li_scope_trigger_level, *LI_SCOPE_TRIGGER_FIXED_PARAMS]
+    li_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
+    na_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
 
-    li_figure, li_ax, li_lines = initialize_li_plot()
-    na_figure, na_ax1, na_ax2, na_lines = initialize_na_plot()
+
+    li_figure, li_ax, li_lines = initialize_li_plot(li_time_data)
+    na_figure, na_ax1, na_ax2, na_lines = initialize_na_plot(na_time_data)
 
     li_picoscope = initialize_scope(*LI_SCOPE_FIXED_PARAMS, trigger_params = li_scope_trigger_params)
-    li_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
+    li_figure_tuple = (li_figure, li_ax, li_lines, li_time_data)
+
 
     na_picoscope = initialize_scope(*NA_SCOPE_FIXED_PARAMS)
-    na_time_data = np.linspace(0, LOCK_BLOCK_DURATION, num = LOCK_BLOCK_SIZE)
+    na_figure_tuple = (na_figure, na_ax1, na_ax2, na_lines, na_time_data)
+
+    sim_li_trace = np.stack((np.zeros(len(li_time_data)), np.ones(len(li_time_data)) * 1000))
+    sim_li_fp_peak_indices = np.arange(4) * 30
 
     with li_picoscope, na_picoscope:
         try:
-            print("Made it to this point")
+            na_scope_offset = initialize_na_scope_offset(na_picoscope)
             li_scope_trigger_level, reference_peak_indices, reference_peak_values = initialize_li_fp_peaks(LI_FP_PEAK_INITIALIZATION_SAMPLES, 
-                                                                                    li_picoscope, li_scope_trigger_level, zira)
+                                                                                    li_picoscope, li_scope_trigger_level, li_figure_tuple, tts_engine)
+            tts_engine_say(tts_engine, "Initialization complete", voice = "Zira")
             li_fp_peak_error_count = np.zeros(len(reference_peak_indices))
             while True:
 
                 #Na scope
 
-                na_ydata_traces = get_scope_traces(na_picoscope)
-                update_na_plot(na_figure, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces)
+                na_ydata_traces = get_scope_traces(na_picoscope) - na_scope_offset
+                update_na_plot(na_figure_tuple, na_ydata_traces)
                 na_has_error = detect_na_error(na_ydata_traces)
 
                 #Na error handling
@@ -124,7 +130,7 @@ def main(initial_trigger_level):
                 if na_has_error:
                     NA_ERROR_MESSAGE_SPOKEN = "Guys, sodium unlocked!"
                     NA_ERROR_MESSAGE_SLACK = "Guys, the Na laser unlocked"
-                    tts_engine_say(david, NA_ERROR_MESSAGE_SPOKEN)
+                    tts_engine_say(tts_engine, NA_ERROR_MESSAGE_SPOKEN, voice = "David")
                     slack_unlock_status = True
                     last_slack_warned_time = slack_warn(NA_ERROR_MESSAGE_SLACK, my_bot,
                                                         last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, mention_all = True, 
@@ -136,89 +142,86 @@ def main(initial_trigger_level):
                 li_ydata_traces = get_scope_traces(li_picoscope)
                 li_fp_trace = li_ydata_traces[1]
                 fp_peak_indices, fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
-                update_li_plot(li_figure, li_ax, li_lines, li_time_data, li_ydata_traces, fp_peak_indices)
+                update_li_plot(li_figure_tuple, li_ydata_traces, fp_peak_indices)
 
                 #Li error handling
 
-                li_errors = detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, reference_peak_values)                
+                li_errors = detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, reference_peak_values) 
+
                 if not np.any(li_errors):
-                    li_fp_peak_error_count -= 1
                     fp_peak_values = li_fp_trace[fp_peak_indices]
                     reference_peak_indices, reference_peak_values = update_reference_peaks(fp_peak_indices, reference_peak_indices, 
                                                                                            fp_peak_values, reference_peak_values)
                     booster_peak_index = fp_peak_indices[0]
                     trigger_adjusted, adjusted_li_scope_trigger_level = adjust_li_trigger_location(li_picoscope, li_scope_trigger_level, booster_peak_index, 
-                                                                       LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, zira)
+                                                                       LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, tts_engine)
                     if trigger_adjusted:
                         trigger_adjust_increment_mV = adjusted_li_scope_trigger_level - li_scope_trigger_level
                         li_fp_sweep_trace_mV = li_ydata_traces[0]
                         trigger_adjust_index_correction = calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigger_adjust_increment_mV)
                         reference_peak_indices = reference_peak_indices + trigger_adjust_index_correction
                     li_scope_trigger_level = adjusted_li_scope_trigger_level
-                else:
-                    li_fp_peak_error_count += np.where(1, 0, li_errors)
+                
+                li_fp_peak_error_count += np.where(li_errors, 1, -1)
                 li_fp_peak_error_count = np.clip(li_fp_peak_error_count, 0, 2 * LI_LOCK_ERROR_TOLERANCE)
-                fp_peak_has_error_indices = np.nonzero(li_fp_peak_error_count > LI_LOCK_ERROR_TOLERANCE)
+                fp_peak_has_error_indices = np.nonzero(li_fp_peak_error_count > LI_LOCK_ERROR_TOLERANCE)[0]
                 if len(fp_peak_has_error_indices) > 0:
                     error_peak_names_list = []
                     for fp_peak_has_error_index in fp_peak_has_error_indices:
                         error_peak_names_list.append(FP_PEAK_NAMES[fp_peak_has_error_index])
                     spoken_message_string = " ".join(error_peak_names_list)
-                    tts_engine_say(zira, spoken_message_string)
+                    tts_engine_say(tts_engine, spoken_message_string, voice = "Zira")
                     slack_message_string = "The following diodes appear to be unlocked: {0}".format(", ".join(error_peak_names_list))
                     last_slack_warned_time = slack_warn(slack_message_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
                                                         mention_all = True, override_interval = False)
                     slack_unlock_status = True
 
                 #Broadcast an all-clear if all errors are cleared
+                #Reset warning time so new error can be broadcast right away once old one is resolved
 
                 if slack_unlock_status and not na_has_error and len(fp_peak_has_error_indices) == 0:
-                    slack_unlock_status = False 
+                    slack_unlock_status = False
                     all_clear_string = "Everything's fine now."
                     last_slack_warned_time = slack_warn(all_clear_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
                                                         mention_all = False, override_interval = True) 
+                    last_slack_warned_time = -np.inf
         except KeyboardInterrupt:
             print('Picoscope logging terminated by keyboard interrupt')
 
 
-
-def initialize_ttsengines():
-    # enable text to speech: Female voice (Zira)
-    zira = pyttsx3.init()
-    voice_zira = zira.getProperty('voices')
-    zira.setProperty('voice', voice_zira[1].id) # index = 0 for male and 1 for female
-    # enable text to speech: Male voice (David)
-    david = pyttsx3.init()
-    voice_david = david.getProperty('voices')
-    david.setProperty('voice', voice_david[0].id) 
-    return (zira, david)
-
-def tts_engine_say(engine, msg):
+def tts_engine_say(engine, msg, voice = None):
+    if voice == "Zira":
+        voice_zira = engine.getProperty("voices")[1]
+        engine.setProperty('voice', voice_zira.id)
+    elif voice == "David":
+        voice_david = engine.getProperty("voices")[0] 
+        engine.setProperty('voice', voice_david.id)
     engine.say(msg)
     engine.runAndWait()
 
-def initialize_li_plot():
+
+def initialize_li_plot(li_time_data):
     plt.ion()
     li_figure, li_ax = plt.subplots(figsize = (5, 5)) 
-    li_line1, = li_ax.plot(0, 0) 
-    li_line2, = li_ax.plot(0, 0) 
-    li_line3, = li_ax.plot(0, 0, 'x') 
+    li_line1, = li_ax.plot(li_time_data, np.zeros(len(li_time_data))) 
+    li_line2, = li_ax.plot(li_time_data, np.zeros(len(li_time_data))) 
+    li_line3, = li_ax.plot(np.linspace(0, 1, 4) * max(li_time_data), np.zeros(4), 'x') 
     li_lines = (li_line1, li_line2, li_line3)
     plt.xlabel("Time (s)") 
     plt.ylabel("Voltage (mV)")
     return (li_figure, li_ax, li_lines)
 
 
-def initialize_na_plot():
+def initialize_na_plot(na_time_data):
     plt.ion()
     na_figure, na_ax1 = plt.subplots(figsize = (5,5)) 
     na_ax1.set_xlabel("Time (s)")
     na_ax1.set_ylabel("Error signal (mV)", color = "blue")
-    na_line_1, = na_ax1.plot(0, 0, color = "blue") 
+    na_line_1, = na_ax1.plot(na_time_data, np.zeros(len(na_time_data)), color = "blue") 
     na_ax1.set_ylim([-1000, 1000])
     na_ax1.tick_params(axis = 'y', labelcolor = 'blue')
     na_ax2 = na_ax1.twinx()
-    na_line_2, = na_ax2.plot(0, 0, color = "red")
+    na_line_2, = na_ax2.plot(na_time_data, np.zeros(len(na_time_data)), color = "red")
     na_ax2.set_label("Time (s)") 
     na_ax2.set_ylabel("Output signal (mV)\n", color = "red")
     na_ax2.tick_params(axis = 'y', labelcolor = "red")
@@ -227,7 +230,8 @@ def initialize_na_plot():
     return (na_figure, na_ax1, na_ax2, na_lines)
 
 
-def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_traces):
+def update_na_plot(na_figure_tuple, na_ydata_traces):
+    na_fig, na_ax1, na_ax2, na_lines, na_time_data = na_figure_tuple
     for line, ydata in zip(na_lines, na_ydata_traces):
         line.set_xdata(na_time_data) 
         line.set_ydata(ydata)
@@ -235,24 +239,28 @@ def update_na_plot(na_fig, na_ax1, na_ax2, na_lines, na_time_data, na_ydata_trac
     ax2_ymax = min(NA_SCOPE_CHANNEL_B_RANGE_MV, 1.2 * trace_max)
     na_ax1.set_ylim([-NA_SCOPE_CHANNEL_A_RANGE_MV, NA_SCOPE_CHANNEL_A_RANGE_MV])
     na_ax2.set_ylim([-int(ax2_ymax), int(ax2_ymax)])
-    #update plot 
     na_fig.canvas.draw() 
     na_fig.canvas.flush_events() 
     time.sleep(0.1)
 
-def update_li_plot(li_fig, li_ax, li_lines, li_time_data, li_ydata_traces, li_fp_peak_indices):
+def update_li_plot(li_figure_tuple, li_ydata_traces, li_fp_peak_indices):
+    li_fig, li_ax, li_lines, li_time_data = li_figure_tuple
     sweep_line, fp_line, peaks_line = li_lines
     sweep_ydata, fp_ydata = li_ydata_traces
+    trace_min = np.min(li_ydata_traces) 
+    trace_max = np.max(li_ydata_traces) 
+    trace_diff = trace_max - trace_min 
+    trace_padding = trace_diff / 10
+
+    li_ax.set_ylim([trace_min - trace_padding, trace_max + trace_padding])
     peaks_ydata = fp_ydata[li_fp_peak_indices]
     peaks_time_data = li_time_data[li_fp_peak_indices] 
-
     sweep_line.set_xdata(li_time_data) 
     sweep_line.set_ydata(sweep_ydata) 
     fp_line.set_xdata(li_time_data) 
     fp_line.set_ydata(fp_ydata) 
     peaks_line.set_xdata(peaks_time_data) 
     peaks_line.set_ydata(peaks_ydata) 
-
     li_fig.canvas.draw() 
     li_fig.canvas.flush_events() 
     time.sleep(0.1)
@@ -272,10 +280,8 @@ def initialize_scope(serial, channel_range_A, channel_range_B,
 
 
 def get_scope_traces(picoscope):
-    print("Getting scope traces")
     picoscope.run_block()
     buffers = picoscope.get_block_traces()
-    print("Got 'em")
     return np.array([val for val in buffers.values()])
 
 
@@ -291,7 +297,7 @@ def detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, refer
     li_fp_peak_values = li_fp_trace[fp_peak_indices] 
     if len(fp_peak_indices) == 0:
         return np.full(4, True)
-    fp_peak_reference_differences = np.abs(np.expand_dims(fp_peak_indices) - reference_peak_indices)
+    fp_peak_reference_differences = np.abs(np.expand_dims(fp_peak_indices, axis = 1) - reference_peak_indices)
     #Identify peaks in the FP spectrum by assigning peaks to the closest reference peak
     fp_peak_identities = np.argmin(fp_peak_reference_differences, axis = 1)
     fp_peak_differences = np.min(fp_peak_reference_differences, axis = 1)
@@ -337,19 +343,24 @@ def adjust_li_trigger_location(li_scope, li_scope_trigger_level, booster_peak_in
     elif booster_peak_index > LI_LOCK_BOOSTER_MAX_LOCATION: 
         trigger_adjusted = True
         spoken_msg = "Triggering too soon. Adjusting."
-        tts_engine_say(tts_engine, spoken_msg)
+        tts_engine_say(tts_engine, spoken_msg, voice = "Zira")
         li_scope_trigger_level += increment
     else:
         trigger_adjusted = False
     if trigger_adjusted:
-        tts_engine_say(tts_engine, spoken_msg)
+        tts_engine_say(tts_engine, spoken_msg, voice = "Zira")
         li_scope.setup_trigger(LI_SCOPE_TRIGGER_CHANNEL, trigger_threshold_mv = li_scope_trigger_level, 
                                 trigger_direction = LI_SCOPE_TRIGGER_DIRECTION)
         print("Trigger level: {0:.1f} mV".format(li_scope_trigger_level))
     return (trigger_adjusted, li_scope_trigger_level)
 
 
-def initialize_li_fp_peaks(initialization_samples, li_scope, li_scope_trigger_level, tts_engine):
+def initialize_na_scope_offset(na_scope):
+    na_scope_ydata = get_scope_traces(na_scope) 
+    return np.average(na_scope_ydata, axis = 1, keepdims = True)
+
+
+def initialize_li_fp_peaks(initialization_samples, li_scope, li_scope_trigger_level, li_figure_tuple, tts_engine):
     initialization_counter = 0
     average_peak_indices = np.zeros(4) 
     average_peak_values = np.zeros(4)
@@ -357,6 +368,7 @@ def initialize_li_fp_peaks(initialization_samples, li_scope, li_scope_trigger_le
         li_traces = get_scope_traces(li_scope)
         li_fp_trace = li_traces[1]
         li_fp_peak_indices, li_fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
+        update_li_plot(li_figure_tuple, li_traces, li_fp_peak_indices)
         if len(li_fp_peak_indices) == 4:
             booster_peak_index, *_ = li_fp_peak_indices 
             li_fp_peak_values = li_fp_trace[li_fp_peak_indices]
@@ -373,14 +385,14 @@ def initialize_li_fp_peaks(initialization_samples, li_scope, li_scope_trigger_le
                 spoken_message = "Bad trigger"
             else:
                 spoken_message = "Not locked" 
-            tts_engine_say(tts_engine, spoken_message)
+            tts_engine_say(tts_engine, spoken_message, voice = "Zira")
     return (li_scope_trigger_level, average_peak_indices, average_peak_values)
 
 
 HELP_ALIASES = ["help", "h", "HELP", "H", "Help"]
 def parse_clas():
     clas = sys.argv[1:] 
-    if len(clas) > 0 and clas[1] in HELP_ALIASES:
+    if len(clas) > 0 and clas[0] in HELP_ALIASES:
         help_function()
         exit(0)
     if len(clas) > 0:
