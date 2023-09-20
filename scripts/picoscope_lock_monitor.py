@@ -17,7 +17,7 @@ PATH_TO_REPOSITORIES_FOLDER = "C:/Users/BEC1 Top/Repositories"
 sys.path.insert(0, PATH_TO_REPOSITORIES_FOLDER)
 
 from satyendra.code import slack_bot
-from satyendra.code.ps2000_wrapper_blockmode_utils import Picoscope
+from satyendra.code.instruments.ps2000_wrapper_blockmode_utils import Picoscope
 
 
 
