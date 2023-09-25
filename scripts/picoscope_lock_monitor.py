@@ -37,7 +37,7 @@ NA_LOCK_ERROR_THRESHOLD_MV = 25
 
 
 #Li lock config params
-LI_LOCK_PEAK_THRESHOLD = 1000
+LI_LOCK_PEAK_THRESHOLD = 1500
 LI_LOCK_BOOSTER_MIN_LOCATION = int(LOCK_BLOCK_SIZE * (0.002 / 0.006))
 LI_LOCK_BOOSTER_MAX_LOCATION = int(LOCK_BLOCK_SIZE * (0.0023 / 0.006))
 LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT = 100
@@ -119,6 +119,7 @@ def main(initial_trigger_level):
                                                                                     li_picoscope, li_scope_trigger_level, li_figure_tuple, tts_engine)
             tts_engine_say(tts_engine, "Initialization complete", voice = "Zira")
             li_fp_peak_error_count = np.zeros(len(reference_peak_indices))
+            bad_trigger_counter = 0
             while True:
 
                 #Na scope
@@ -149,39 +150,49 @@ def main(initial_trigger_level):
                 #Li error handling
 
                 li_errors = detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, reference_peak_values) 
-
-                if not np.any(li_errors):
-                    fp_peak_values = li_fp_trace[fp_peak_indices]
-                    reference_peak_indices, reference_peak_values = update_reference_peaks(fp_peak_indices, reference_peak_indices, 
-                                                                                           fp_peak_values, reference_peak_values)
-                    booster_peak_index = fp_peak_indices[0]
-                    trigger_adjusted, adjusted_li_scope_trigger_level = adjust_li_trigger_location(li_picoscope, li_scope_trigger_level, booster_peak_index, 
-                                                                       LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, tts_engine)
-                    if trigger_adjusted:
-                        trigger_adjust_increment_mV = adjusted_li_scope_trigger_level - li_scope_trigger_level
-                        li_fp_sweep_trace_mV = li_ydata_traces[0]
-                        trigger_adjust_index_correction = calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigger_adjust_increment_mV)
-                        reference_peak_indices = reference_peak_indices + trigger_adjust_index_correction
-                    li_scope_trigger_level = adjusted_li_scope_trigger_level
-                
-                li_fp_peak_error_count += np.where(li_errors, 1, -1)
-                li_fp_peak_error_count = np.clip(li_fp_peak_error_count, 0, 2 * LI_LOCK_ERROR_TOLERANCE)
-                fp_peak_has_error_indices = np.nonzero(li_fp_peak_error_count > LI_LOCK_ERROR_TOLERANCE)[0]
-                if len(fp_peak_has_error_indices) > 0:
-                    error_peak_names_list = []
-                    for fp_peak_has_error_index in fp_peak_has_error_indices:
-                        error_peak_names_list.append(FP_PEAK_NAMES[fp_peak_has_error_index])
-                    spoken_message_string = " ".join(error_peak_names_list)
-                    tts_engine_say(tts_engine, spoken_message_string, voice = "Zira")
-                    slack_message_string = "The following diodes appear to be unlocked: {0}".format(", ".join(error_peak_names_list))
-                    last_slack_warned_time = slack_warn(slack_message_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
-                                                        mention_all = True, override_interval = False)
-                    slack_unlock_status = True
+                bad_trigger_counter = np.clip(bad_trigger_counter, 0, 2*LI_LOCK_ERROR_TOLERANCE)
+                if len(fp_peak_indices) > len(FP_PEAK_NAMES):
+                    bad_trigger_counter += 1
+                    if bad_trigger_counter > LI_LOCK_ERROR_TOLERANCE:
+                        slack_unlock_status = True 
+                        BAD_TRIGGER_ERROR_MESSAGE_SPOKEN = "Bad Trigger" 
+                        BAD_TRIGGER_ERROR_MESSAGE_SLACK = "The lithium scope has a bad trigger"
+                        tts_engine_say(tts_engine, BAD_TRIGGER_ERROR_MESSAGE_SPOKEN, voice = "Zira")
+                        last_slack_warned_time = slack_warn(BAD_TRIGGER_ERROR_MESSAGE_SLACK, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                                                            mention_all = False, override_interval = False)
+                else:
+                    bad_trigger_counter -= 1
+                    if not np.any(li_errors):
+                        fp_peak_values = li_fp_trace[fp_peak_indices]
+                        reference_peak_indices, reference_peak_values = update_reference_peaks(fp_peak_indices, reference_peak_indices, 
+                                                                                            fp_peak_values, reference_peak_values)
+                        booster_peak_index = fp_peak_indices[0]
+                        trigger_adjusted, adjusted_li_scope_trigger_level = adjust_li_trigger_location(li_picoscope, li_scope_trigger_level, booster_peak_index, 
+                                                                        LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT, tts_engine)
+                        if trigger_adjusted:
+                            trigger_adjust_increment_mV = adjusted_li_scope_trigger_level - li_scope_trigger_level
+                            li_fp_sweep_trace_mV = li_ydata_traces[0]
+                            trigger_adjust_index_correction = calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigger_adjust_increment_mV)
+                            reference_peak_indices = reference_peak_indices + trigger_adjust_index_correction
+                        li_scope_trigger_level = adjusted_li_scope_trigger_level
+                    li_fp_peak_error_count += np.where(li_errors, 1, -1)
+                    li_fp_peak_error_count = np.clip(li_fp_peak_error_count, 0, 2 * LI_LOCK_ERROR_TOLERANCE)
+                    fp_peak_has_error_indices = np.nonzero(li_fp_peak_error_count > LI_LOCK_ERROR_TOLERANCE)[0]
+                    if len(fp_peak_has_error_indices) > 0:
+                        error_peak_names_list = []
+                        for fp_peak_has_error_index in fp_peak_has_error_indices:
+                            error_peak_names_list.append(FP_PEAK_NAMES[fp_peak_has_error_index])
+                        spoken_message_string = " ".join(error_peak_names_list)
+                        tts_engine_say(tts_engine, spoken_message_string, voice = "Zira")
+                        slack_message_string = "The following diodes appear to be unlocked: {0}".format(", ".join(error_peak_names_list))
+                        last_slack_warned_time = slack_warn(slack_message_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
+                                                            mention_all = True, override_interval = False)
+                        slack_unlock_status = True
 
                 #Broadcast an all-clear if all errors are cleared
                 #Reset warning time so new error can be broadcast right away once old one is resolved
 
-                if slack_unlock_status and not na_has_error and len(fp_peak_has_error_indices) == 0:
+                if slack_unlock_status and not na_has_error and not len(fp_peak_indices) > len(FP_PEAK_NAMES) and len(fp_peak_has_error_indices) == 0:
                     slack_unlock_status = False
                     all_clear_string = "Everything's fine now."
                     last_slack_warned_time = slack_warn(all_clear_string, my_bot, last_slack_warned_time, SLACK_SECS_BETWEEN_WARNINGS, 
