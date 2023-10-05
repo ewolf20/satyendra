@@ -329,7 +329,7 @@ def detect_li_errors(li_fp_trace, fp_peak_indices, reference_peak_indices, refer
 def calculate_li_fp_trigger_adjust_index_correction(li_fp_sweep_trace_mV, trigger_adjust_increment_mV):
     reference_sweep_value = np.average(li_fp_sweep_trace_mV) 
     reference_sweep_value_index = np.argmin(np.abs(li_fp_sweep_trace_mV) - reference_sweep_value)
-    trigger_adjust_offset_sweep_trace = li_fp_sweep_trace_mV - trigger_adjust_increment_mV 
+    trigger_adjust_offset_sweep_trace = li_fp_sweep_trace_mV + trigger_adjust_increment_mV 
     adjusted_reference_sweep_value_index = np.argmin(np.abs(trigger_adjust_offset_sweep_trace) - reference_sweep_value)
     reference_sweep_value_index_change = adjusted_reference_sweep_value_index - reference_sweep_value_index 
     return reference_sweep_value_index_change
