@@ -74,7 +74,7 @@ class DS_Instruments_DDS:
 
 
 
-    def set_frequency_MHz(self, freq_in_MHz, confirm = False, ramp_to_setpoint = False, ramp_step_size_MHz = 1.0, sleep_time = 0.01):
+    def set_frequency_MHz(self, freq_in_MHz, confirm = False, ramp_to_setpoint = False, ramp_step_size_MHz = 1.0):
         DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING = "FREQ:CW {0:f}MHz"
         if not ramp_to_setpoint:
             message_string = DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING.format(freq_in_MHz)
@@ -82,7 +82,7 @@ class DS_Instruments_DDS:
         else:
             current_frequency_MHz = self.get_frequency_MHz()
             while abs(current_frequency_MHz - freq_in_MHz) > 1e-4:
-                increment = math.copysign(ramp_step_size_MHz, freq_in_MHz - current_frequency_MHz)
+                increment = math.copysign(min(ramp_step_size_MHz, abs(freq_in_MHz - current_frequency_MHz)), freq_in_MHz - current_frequency_MHz)
                 temp_target_frequency_MHz = current_frequency_MHz + increment
                 message_string = DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING.format(temp_target_frequency_MHz)
                 self.send(message_string)
