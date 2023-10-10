@@ -31,7 +31,7 @@ class DDS_GUI():
     def __init__(self, master):
         self.master = master
         self.dds = None
-        initialize_button = tk.Button(self.master, text = "Initialize DDS", relief = "raised", width = 8, command = self.initialize_dds)
+        initialize_button = tk.Button(self.master, text = "Initialize DDS", relief = "raised", width = 12, command = self.initialize_dds)
         initialize_button.pack()
         address_label = tk.Label(self.master, text = "DDS Address", width = 10)
         address_label.pack()
@@ -49,11 +49,11 @@ class DDS_GUI():
         self.selected_frequency = 0.0
         self.frequency_selection_button_dict = {}
         for freq_selection_name in DEFAULT_FREQ_SELECTION_DICT:
-            new_button = tk.Button(self.master, text = freq_selection_name, relief = "raised", width = 8,
+            new_button = tk.Button(self.master, text = freq_selection_name, relief = "raised", width = 12,
                             command = (lambda n=freq_selection_name: self.set_frequency_button_clicked(n)))
             self.frequency_selection_button_dict[freq_selection_name] = new_button
             new_button.pack()
-        custom_freq_button = tk.Button(self.master, text = "Custom", relief = "raised", width = 8, command = self.custom_frequency_button_clicked)
+        custom_freq_button = tk.Button(self.master, text = "Custom", relief = "raised", width = 12, command = self.custom_frequency_button_clicked)
         custom_freq_button.pack()
         self.frequency_selection_button_dict["Custom"] = custom_freq_button
         custom_freq_text = tk.StringVar() 
@@ -64,7 +64,7 @@ class DDS_GUI():
         self.update_target_frequency_label()
         target_frequency_label = tk.Label(self.master, textvariable = self.target_frequency_text)
         target_frequency_label.pack()
-        self.set_dds_button = tk.Button(self.master, text = "Set_DDS", relief = "raised", width = 8, command = self.set_dds)
+        self.set_dds_button = tk.Button(self.master, text = "Set_DDS", relief = "raised", width = 12, command = self.set_dds)
         self.set_dds_button.pack()
         self.dds_status_text = tk.StringVar() 
         self.dds_status_text.set("Not Initialized")
@@ -106,12 +106,13 @@ class DDS_GUI():
         try:
             self.dds = dds_wrapper.DS_Instruments_DDS(dds_address, confirm_throws_error = True, revision_code = DDS_REVISION_CODE)
             if self.dds.ping_test():
-                if not self.dds.is_output_on():
-                    self.dds.turn_output_on(confirm = True)
+                #Unfortunately the ancient dds we use doesn't support output on checking
+                self.dds.turn_output_on(confirm = False)
                 self.dds_status_text.set("Initialized")
             else:
                 self.dds_status_text.set("Not responding")
         except (serial.serialutil.SerialException, RuntimeError) as e:
+            print(e)
             self.dds_status_text.set("Initialization Error")
 
     def update_target_frequency_label(self):
