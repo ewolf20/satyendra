@@ -1,4 +1,6 @@
+import math
 import serial 
+import time
 import warnings
 
 
@@ -11,7 +13,9 @@ class DS_Instruments_DDS:
 
     DS_INSTRUMENTS_SEND_EOL = "\n"
     DS_INSTRUMENTS_REPLY_EOL = "\r\n"
-    DS_INSTRUMENTS_PORT_SETTINGS = {'baudrate':115200, 'bytesize':serial.EIGHTBITS, 'parity':serial.PARITY_NONE, 'stopbits':serial.STOPBITS_ONE, 'timeout':1.0}
+    DS_INSTRUMENTS_PORT_SETTINGS = {'baudrate':115200, 'bytesize':serial.EIGHTBITS, 'parity':serial.PARITY_NONE,
+                                 'stopbits':serial.STOPBITS_ONE, 'timeout':1.0}
+    DS_INSTRUMENTS_DELAY_TIME_SECS = 0.15
 
 
 
@@ -70,10 +74,19 @@ class DS_Instruments_DDS:
 
 
 
-    def set_frequency_MHz(self, freq_in_MHz, confirm = False):
+    def set_frequency_MHz(self, freq_in_MHz, confirm = False, ramp_to_setpoint = False, ramp_step_size_MHz = 1.0):
         DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING = "FREQ:CW {0:f}MHz"
-        message_string = DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING.format(freq_in_MHz)
-        self.send(message_string)
+        if not ramp_to_setpoint:
+            message_string = DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING.format(freq_in_MHz)
+            self.send(message_string)
+        else:
+            current_frequency_MHz = self.get_frequency_MHz()
+            while abs(current_frequency_MHz - freq_in_MHz) > 1e-4:
+                increment = math.copysign(min(ramp_step_size_MHz, abs(freq_in_MHz - current_frequency_MHz)), freq_in_MHz - current_frequency_MHz)
+                temp_target_frequency_MHz = current_frequency_MHz + increment
+                message_string = DS_INSTRUMENTS_FREQUENCY_SET_BASESTRING.format(temp_target_frequency_MHz)
+                self.send(message_string)
+                current_frequency_MHz += increment
         if confirm:
             reply_MHz = self.get_frequency_MHz() 
             if not abs(freq_in_MHz - reply_MHz) < 1e-4:
@@ -203,18 +216,26 @@ class DS_Instruments_DDS:
         reply_att_string = reply_string.split(DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL)[0]
         reply_att_dB = float(reply_att_string)
         return reply_att_dB
+    
+
+    def ping_test(self):
+        DS_INSTRUMENTS_PING_MSG = "*PING?"
+        DS_INSTRUMENTS_EXPECTED_PONG_REPLY = b'PONG!\r\n'
+        return self.send_and_get_reply(DS_INSTRUMENTS_PING_MSG) == DS_INSTRUMENTS_EXPECTED_PONG_REPLY
 
 
     def send(self, msg):
         terminated_msg = msg + self.send_eol
         self.serial_port.write(terminated_msg.encode("ASCII"))
-        self.serial_port.flush() 
+        self.serial_port.flush()
+        time.sleep(DS_Instruments_DDS.DS_INSTRUMENTS_DELAY_TIME_SECS)
         if self.echo:
             print("Sent msg: {0}".format(msg))
     
     def send_and_get_reply(self, msg, check_reply = False):
         self.send(msg)
         received_bytes = self.serial_port.read_until(self.reply_eol.encode("ASCII"))
+        self.serial_port.reset_input_buffer()
         if self.echo:
             print("Received reply: {0}".format(received_bytes))
         received_string = received_bytes.decode("ASCII") 
