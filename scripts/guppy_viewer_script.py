@@ -15,17 +15,21 @@ from satyendra.code.instruments.cameras import guppy_camera
 
 def main():
     print("Initializing")
-    camera_id, *cam_setup_params = parse_clas()
+    camera_id, camera_config_dict, camera_parameter_override_dict = parse_clas()
+    camera_bit_depth = camera_config_dict["bit_depth"]
+    pixel_max = 2**camera_bit_depth - 1
+    camera_parameter_dict = camera_config_dict["acquisition_parameters"]
     fig, ax = plotting_utilities.initialize_live_plot()
     with guppy_camera.GuppyCamera(camera_id) as cam:
-        setup_camera(cam, *cam_setup_params)
+        setup_camera(cam, camera_parameter_dict, camera_parameter_override_dict)
         print("Done. Use Ctrl+C to exit.")
         try:
             cam.start_video()
             while True:
                 current_frame = cam.get_video_frame(recency = "newest")
                 if not current_frame is None:
-                    plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = 255, cmap="gray")
+                    print("Got frame")
+                    plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = pixel_max, cmap="gray")
         finally:
             cam.stop_video()
 
@@ -36,36 +40,31 @@ def parse_clas():
         _help_function() 
         exit(0)
     camera_name = command_line_args[0]
-    GUPPY_CONFIG_FILENAME = "guppy_camera_name_config_local.json"
+    GUPPY_CONFIG_FILENAME = "guppy_viewer_script_config_local.json"
     camera_config_dict_dict = loading_functions.load_config_json(GUPPY_CONFIG_FILENAME) 
-    camera_config_dict = camera_config_dict_dict[camera_name] 
+    camera_config_dict = camera_config_dict_dict[camera_name]
     camera_id = camera_config_dict["camera_id"]
+    camera_parameter_override_dict = {}
     if len(command_line_args) > 1:
-        exposure_time_us = float(command_line_args[1])
-    else:
-        exposure_time_us = camera_config_dict["default_exposure"]
+        camera_parameter_override_dict["ExposureTime"] = float(command_line_args[1])
     if len(command_line_args) > 2:
-        exposure_auto = (command_line_args[2] == "True")
-    else:
-        exposure_auto = camera_config_dict["default_auto_exposure"]
+        if command_line_args[2] == "True":
+            camera_parameter_override_dict["ExposureAuto"] = "On"
+        else:
+            camera_parameter_override_dict["ExposureAuto"] = "Off"
     if len(command_line_args) > 3:
-        image_height = int(command_line_args[3]) 
-    else:
-        image_height = camera_config_dict["default_image_height"] 
+        camera_parameter_override_dict["Height"] = int(command_line_args[3])
     if len(command_line_args) > 4:
-        image_width = int(command_line_args[4])
-    else:
-        image_width = camera_config_dict["default_image_width"]
-    return (camera_id, exposure_time_us, exposure_auto, image_height, image_width) 
+        camera_parameter_override_dict["Width"] = int(command_line_args[4])
+    return (camera_id, camera_config_dict, camera_parameter_override_dict) 
 
 
 
-def setup_camera(cam, exposure_time_us, exposure_auto, image_height, image_width):
-    cam.set_auto_exposure(exposure_auto)
-    cam.set_exposure_time(exposure_time_us) 
-    cam.set_image_height(image_height) 
-    cam.set_image_width(image_width)
-    cam.set_property("TriggerMode", "Off")
+def setup_camera(cam, camera_parameter_dict, camera_parameter_override_dict):
+    for key in camera_parameter_dict:
+        cam.set_property(key, camera_parameter_dict[key])
+    for key in camera_parameter_override_dict:
+        cam.set_property(key, camera_parameter_override_dict[key])
 
 
 

@@ -1,7 +1,7 @@
 from collections import deque
 
 import numpy as np
-from vimba import Vimba
+from vimba import Vimba, PixelFormat
 
 
 from . import camera_interface
@@ -101,11 +101,13 @@ class GuppyCamera(camera_interface.Camera):
             raise RuntimeError("Video mode is not running.")
         return len(self._streaming_buffer_deque)
 
-    _supported_writeable_properties = ["ExposureTime", "ExposureAuto", "Height", "GainAuto", "GainRaw","TriggerActivation", "TriggerDelay",
+    _supported_writeable_properties = ["DeviceLinkThroughputLimit", "ExposureTime", "ExposureAuto", "Height", "Gain", "GainAuto", "GainRaw", "PixelFormat",
+                                    "TriggerActivation", "TriggerDelay",
                                        "TriggerMode", "TriggerSelector", "TriggerSource", "Width"]
 
-    _supported_writeable_property_values = {"ExposureTime":(int, "in microseconds"), "ExposureAuto":(str, "'On' or 'Off'"), "GainAuto":(str, "'On' or 'Off'"),
-                                            "GainRaw":(int, "8 to 48, increment 1"), "Height":(int, 'pix'), 
+    _supported_writeable_property_values = {"DeviceLinkThroughputLimit":(int, "bytes per second"), "ExposureTime":(int, "in microseconds"), "ExposureAuto":(str, "'On' or 'Off'"),
+                                             "Gain":(float, "in dB, increment 0.1"), "GainAuto":(str, "'On' or 'Off'"), "GainRaw":(int, "8 to 48, increment 1"), "Height":(int, 'pix'), 
+                                            "PixelFormat":(str, "'Mono8', 'Mono12' etc. for monochrome cameras"),
                                             "TriggerActivation":(str, "'RisingEdge' or 'FallingEdge'"), "TriggerDelay":(float, "Exposure start delay after trigger, us"), 
                                             "TriggerMode":(str, "'On' or 'Off'"), "TriggerSelector":(str, "'ExposureStart' or other value"), 
                                             "TriggerSource":(str, "'InputLines' or other value"), "Width":(int, 'pix')}
@@ -120,9 +122,23 @@ class GuppyCamera(camera_interface.Camera):
         exposure_time = cam.ExposureTime
         return exposure_time.get_increment()
 
-    _getter_wildcards = {"ExposureTimeIncrement":_exposure_increment_wildcard_getter}
+    @staticmethod 
+    def _pixel_format_wildcard_getter(cam):
+        return str(cam.get_pixel_format())
 
-    _setter_wildcards = {}
+
+    _getter_wildcards = {"ExposureTimeIncrement":_exposure_increment_wildcard_getter, "PixelFormat":_pixel_format_wildcard_getter}
+
+    #Wildcard setters which do not obey the standard syntax
+
+    @staticmethod 
+    def _pixel_format_wildcard_setter(cam, value):
+        cam.set_pixel_format(getattr(PixelFormat, value))
+
+
+
+
+    _setter_wildcards = {"PixelFormat":_pixel_format_wildcard_setter}
 
 
     def set_property(self, key, value):
@@ -136,7 +152,7 @@ class GuppyCamera(camera_interface.Camera):
             attribute.set(value)
         else:
             setter_method = GuppyCamera._setter_wildcards[key] 
-            setter_method(self.cam) 
+            setter_method(self.cam, value) 
         
 
     def get_property(self, key):
@@ -166,48 +182,6 @@ class GuppyCamera(camera_interface.Camera):
     def read_only_properties(self):
         return GuppyCamera._supported_read_only_properties
     
-
-
-
-
-    #Human-readable functions, retained for convenience and backwards compatibility
-    def set_exposure_time(self, exposure_time_us):
-        exposure_time = self.cam.ExposureTime
-        exposure_time.set(exposure_time_us)
-
-
-    def get_exposure_time(self):
-        exposure_time = self.cam.ExposureTime 
-        return exposure_time.get()
-
-    def set_auto_exposure(self, auto_enable):
-        exposure_auto = self.cam.ExposureAuto 
-        if auto_enable:
-            exposure_auto.set("On")
-        else:
-            exposure_auto.set("Off")
-
-
-    def set_image_height(self, image_height):
-        height = self.cam.Height 
-        height.set(image_height)
-
-    def get_image_height(self):
-        return self.cam.Height.get() 
-    
-    def get_image_max_height(self):
-        return self.cam.HeightMax.get()
-
-    
-    def set_image_width(self, image_width):
-        width = self.cam.Width 
-        width.set(image_width) 
-
-    def get_image_width(self):
-        return self.cam.Width.get() 
-    
-    def get_image_max_width(self):
-        return self.cam.WidthMax.get()
     
     #Convenience method for getting available camera ids...
     @staticmethod 
