@@ -46,6 +46,7 @@ sys.path.insert(0, path_to_satyendra)
 import image_saver_script as saver
 from satyendra.code.image_watchdog import ImageWatchdog
 from satyendra.code import loading_functions as satyendra_loading_functions
+from satyendra.configs import custom_live_analysis_local as custom_la
 from BEC1_Analysis.scripts import imaging_resonance_processing, rf_spect_processing, hybrid_top_processing
 from BEC1_Analysis.code import measurement, analysis_functions
 # m = measurement.Measurement(...)
@@ -87,7 +88,9 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         'Counts Top B (abs)', 
                         #'Counts Top AB (abs)', 
                         'Counts Top A (PR)',
-                        'Counts Top B (PR)'
+                        'Counts Top B (PR)', 
+                        'Custom Function 1',
+                        'Custom Function 2'
                         ]
 
 ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
@@ -101,7 +104,9 @@ ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         analysis_functions.get_atom_count_top_B_abs,
                         #analysis_functions.get_atom_counts_top_AB_abs,
                         analysis_functions.get_atom_counts_top_polrot,
-                        analysis_functions.get_atom_counts_top_polrot
+                        analysis_functions.get_atom_counts_top_polrot, 
+                        custom_la.custom_func_1,
+                        custom_la.custom_func_2
                         ]
 
 TO_DENSITY = {'Counts Side LF' : analysis_functions.get_atom_density_side_li_lf, 

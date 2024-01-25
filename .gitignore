@@ -137,6 +137,9 @@ dmypy.json
 
 *local.json
 
+#Local python code snippets
+*local.py
+
 #Mac-specific 
 .DS_Store
 
