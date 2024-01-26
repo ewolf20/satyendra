@@ -10,6 +10,7 @@ from turtle import color
 import re
 from tkinter import filedialog
 import datetime
+import importlib
 import importlib.resources as pkg_resources
 import json
 import shutil
@@ -46,6 +47,7 @@ sys.path.insert(0, path_to_satyendra)
 import image_saver_script as saver
 from satyendra.code.image_watchdog import ImageWatchdog
 from satyendra.code import loading_functions as satyendra_loading_functions
+from satyendra.configs import custom_live_analysis_local as custom_la
 from BEC1_Analysis.scripts import imaging_resonance_processing, rf_spect_processing, hybrid_top_processing
 from BEC1_Analysis.code import measurement, analysis_functions
 # m = measurement.Measurement(...)
@@ -87,7 +89,9 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         'Counts Top B (abs)', 
                         #'Counts Top AB (abs)', 
                         'Counts Top A (PR)',
-                        'Counts Top B (PR)'
+                        'Counts Top B (PR)', 
+                        'Custom Function 1',
+                        'Custom Function 2'
                         ]
 
 ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
@@ -101,7 +105,9 @@ ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         analysis_functions.get_atom_count_top_B_abs,
                         #analysis_functions.get_atom_counts_top_AB_abs,
                         analysis_functions.get_atom_counts_top_polrot,
-                        analysis_functions.get_atom_counts_top_polrot
+                        analysis_functions.get_atom_counts_top_polrot, 
+                        custom_la.custom_func_1,
+                        custom_la.custom_func_2
                         ]
 
 TO_DENSITY = {'Counts Side LF' : analysis_functions.get_atom_density_side_li_lf, 
@@ -2702,8 +2708,18 @@ class BEC1_Portal():
                     for q in self.quantities_to_be_measured:
                         if q in MEASURE_QUANTITIES:
                             index_q = MEASURE_QUANTITIES.index(q)
+                            #First handle custom functions with dynamic reloading
+                            if 'Custom' in q:
+                                importlib.reload(custom_la)
+                                if '1' in q:
+                                    custom_func = custom_la.custom_func_1 
+                                elif '2' in q:
+                                    custom_func = custom_la.custom_func_2 
+                                else:
+                                    custom_func = None
+                                self.current_measurement.add_to_live_analyses(custom_func, q, fun_kwargs = None, run_filter = None)
                             # see if q requires density calculation: no if doing pixel sum
-                            if 'Pixel' in q:
+                            elif 'Pixel' in q:
                                 self.current_measurement.add_to_live_analyses(ANALYSIS_FUNCTIONS[index_q], q, fun_kwargs = None, run_filter = None)
                             else: # use q as key in TO_DENSITY dict to retrieve appropriate analysis function
                                 # two cases: polrot and non-polrot
