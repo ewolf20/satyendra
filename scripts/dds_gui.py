@@ -16,7 +16,7 @@ from satyendra.code import loading_functions
 
 #DDS Frequencies
 DDS_DEFAULT_OFFSET = 142.5
-DEFAULT_FREQ_SELECTION_DICT = {"Resonance":466.5, "Polrot_Box":490.5, "Polrot_Box_Exp":484.5, "Rapid_Ramp":389.75}
+DEFAULT_FREQ_SELECTION_DICT = {"Resonance":466.5, "Polrot_Box":496.5, "Polrot_Box_Exp":484.5, "Rapid_Ramp":389.5}
 
 
 #DDS com address
