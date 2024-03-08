@@ -20,7 +20,7 @@ class DS_Instruments_DDS:
 
 
     def __init__(self, com_port, echo = False, confirm_throws_error = False, turnoff_at_exit = False, 
-                revision_code = "legacy"):
+                revision_code = "modern"):
         #Default port settings for DS instruments DDS
         port_settings = DS_Instruments_DDS.DS_INSTRUMENTS_PORT_SETTINGS
         self.serial_port = serial.Serial(com_port, **port_settings)
