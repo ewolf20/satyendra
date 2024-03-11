@@ -245,6 +245,88 @@ class DS_Instruments_DDS:
         return reply_sweep_status_string
 
 
+    def set_sweep_points(self, num_sweep_points, confirm = False):
+        DS_INSTRUMENTS_SWEEP_POINTS_SET_BASESTRING = "SWE:POINTS {0:d}"
+        message_string = DS_INSTRUMENTS_SWEEP_POINTS_SET_BASESTRING.format(num_sweep_points)
+        self.send(message_string) 
+        if confirm:
+            reply_points = self.get_sweep_points() 
+            if not reply_points == num_sweep_points:
+                error_string = "The stipulated number of sweep points was {0:d}, but the set number was {1:d}".format(num_sweep_points, reply_points)
+                self._handle_confirm_error(error_string)
+
+
+    def get_sweep_points(self):
+        DS_INSTRUMENTS_GET_SWEEP_POINTS_MSG = "SWE:POINTS?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_SWEEP_POINTS_MSG, check_reply = True)
+        #Unused, documentation
+        DS_INSTRUMENTS_SWEEP_POINTS_REPLY_FORMATTING = "{0:d}\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_sweep_points_string = reply_string.split(DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL)[0]
+        reply_sweep_points = int(reply_sweep_points_string)
+        return reply_sweep_points
+
+    def get_sweep_dwell_time_ms(self):
+        DS_INSTRUMENTS_GET_SWEEP_DWELL_TIME_MSG = "SWE:DWELL?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_SWEEP_DWELL_TIME_MSG, check_reply = True)
+        #Unused, documentation
+        DS_INSTRUMENTS_SWEEP_DWELL_TIME_REPLY_FORMATTING = "{0:d}\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_sweep_dwell_time_string = reply_string.split(DS_Instruments_DDS.DS_INSTRUMENTS_REPLY_EOL)[0]
+        reply_sweep_dwell_time = int(reply_sweep_dwell_time_string)
+        return reply_sweep_dwell_time
+
+    def set_sweep_dwell_time_ms(self, dwell_time_ms, confirm = False):
+        DS_INSTRUMENTS_SWEEP_POINTS_SET_BASESTRING = "SWE:DWELL {0:d}"
+        message_string = DS_INSTRUMENTS_SWEEP_POINTS_SET_BASESTRING.format(dwell_time_ms)
+        self.send(message_string) 
+        if confirm:
+            reply_dwell_time = self.get_sweep_dwell_time_ms() 
+            if not reply_dwell_time == dwell_time_ms:
+                error_string = "The stipulated dwell time was {0:d} ms, but the set dwell time was {1:d} ms".format(dwell_time_ms, reply_dwell_time)
+                self._handle_confirm_error(error_string)
+
+    def get_sweep_start_freq_MHz(self):
+        DS_INSTRUMENTS_GET_SWEEP_START_FREQ_MSG = "FREQ:START?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_SWEEP_START_FREQ_MSG, check_reply = True)
+        #Unused, documentation
+        DS_INSTRUMENTS_SWEEP_START_FREQ_REPLY_FORMATTING = "{0:d}HZ\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_sweep_start_frequency_Hz_string = reply_string.split('HZ')[0]
+        reply_sweep_start_frequency_MHz_string = int(reply_sweep_start_frequency_Hz_string) / 1e6
+        return reply_sweep_start_frequency_MHz_string
+
+    def set_sweep_start_freq_MHz(self, start_freq_MHz, confirm = False):
+        DS_INSTRUMENTS_SWEEP_START_FREQ_SET_BASESTRING = "FREQ:START {0:f}MHZ"
+        message_string = DS_INSTRUMENTS_SWEEP_START_FREQ_SET_BASESTRING.format(start_freq_MHz)
+        self.send(message_string) 
+        if confirm:
+            reply_sweep_start_freq_MHz = self.get_sweep_start_freq_MHz() 
+            if not reply_sweep_start_freq_MHz == start_freq_MHz:
+                error_string = "The stipulated start freq was {0:f} MHz, but the set start freq was {1:f} ms".format(start_freq_MHz, reply_sweep_start_freq_MHz)
+                self._handle_confirm_error(error_string)
+
+    def get_sweep_stop_freq_MHz(self):
+        DS_INSTRUMENTS_GET_SWEEP_STOP_FREQ_MSG = "FREQ:STOP?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_SWEEP_STOP_FREQ_MSG, check_reply = True)
+        #Unused, documentation
+        DS_INSTRUMENTS_SWEEP_STOP_FREQ_REPLY_FORMATTING = "{0:d}HZ\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_sweep_stop_frequency_Hz_string = reply_string.split('HZ')[0]
+        reply_sweep_stop_frequency_MHz_string = int(reply_sweep_stop_frequency_Hz_string) / 1e6
+        return reply_sweep_stop_frequency_MHz_string
+
+    def set_sweep_stop_freq_MHz(self, stop_freq_MHz, confirm = False):
+        DS_INSTRUMENTS_SWEEP_STOP_FREQ_SET_BASESTRING = "FREQ:STOP {0:f}MHZ"
+        message_string = DS_INSTRUMENTS_SWEEP_STOP_FREQ_SET_BASESTRING.format(stop_freq_MHz)
+        self.send(message_string) 
+        if confirm:
+            reply_sweep_stop_freq_MHz = self.get_sweep_stop_freq_MHz() 
+            if not reply_sweep_stop_freq_MHz == stop_freq_MHz:
+                error_string = "The stipulated stop freq was {0:f} MHz, but the set stop freq was {1:f} ms".format(stop_freq_MHz, reply_sweep_stop_freq_MHz)
+                self._handle_confirm_error(error_string)
+
+
     def send(self, msg):
         terminated_msg = msg + self.send_eol
         self.serial_port.write(terminated_msg.encode("ASCII"))
