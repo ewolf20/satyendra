@@ -326,6 +326,57 @@ class DS_Instruments_DDS:
                 error_string = "The stipulated stop freq was {0:f} MHz, but the set stop freq was {1:f} ms".format(stop_freq_MHz, reply_sweep_stop_freq_MHz)
                 self._handle_confirm_error(error_string)
 
+    def get_is_sweep_repeating(self):
+        DS_INSTRUMENTS_GET_CONTINUOUS_REPETITION_MSG = "INIT:CONT?" 
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_CONTINUOUS_REPETITION_MSG, check_reply = True)
+        #Unused, documentation
+        DS_INSTRUMENTS_SWEEP_STOP_FREQ_REPLY_FORMATTING = "{0:d}\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_repetition_code_string = reply_string.split('\r\n')[0]
+        is_repeating = (reply_repetition_code_string == 1)
+        return is_repeating
+
+    def set_is_sweep_repeating(self, is_repeating, confirm = False):
+        DS_INSTRUMENTS_SWEEP_REPETITION_BASESTRING = "INIT:CONT {0:d}"
+        if is_repeating: 
+            repetition_code = 1
+        else:
+            repetition_code = 0 
+        message_string = DS_INSTRUMENTS_SWEEP_REPETITION_BASESTRING.format(repetition_code)
+        self.send(message_string)
+        if confirm:
+            reply_is_repeating = self.get_is_sweep_repeating()
+            if not reply_is_repeating == is_repeating:
+                error_string = "The stipulated sweep repetition status was {0}, but the set status was {1}".format(is_repeating, reply_is_repeating)
+                self._handle_confirm_error(error_string)
+
+
+    def get_is_sweep_active(self):
+        DS_INSTRUMENTS_GET_SWEEP_ACTIVE_MESSAGE = "SWE:ACTIVE?"
+        reply_bytes = self.send_and_get_reply(DS_INSTRUMENTS_GET_SWEEP_ACTIVE_MESSAGE, check_reply = True)
+        DS_INSTRUMENTS_SWEEP_ACTIVE_REPLY_FORMATTING = "{0:d}\r\n" 
+        reply_string = reply_bytes.decode("ASCII")
+        reply_sweep_active_code_string = reply_string.split('\r\n')[0]
+        is_active = (reply_sweep_active_code_string == 1)
+        return is_active
+
+    def trigger_sweep(self):
+        DS_INSTRUMENTS_TRIGGER_MESSAGE = "INIT:IMM"
+        self.send(DS_INSTRUMENTS_TRIGGER_MESSAGE)
+
+    def set_stepwise_trigger(self):
+        DS_INSTRUMENTS_STEPWISE_TRIGGER_MESSAGE = "TRIG:STEP"
+        self.send(DS_INSTRUMENTS_STEPWISE_TRIGGER_MESSAGE)
+
+    
+    def set_full_sweep_trigger(self):
+        DS_INSTRUMENTS_FULL_SWEEP_TRIGGER_MESSAGE = "TRIG:SWEEP"
+        self.send(DS_INSTRUMENTS_FULL_SWEEP_TRIGGER_MESSAGE)
+
+    def abort_sweep(self):
+        DS_INSTRUMENTS_ABORT_SWEEP_MESSAGE = "ABORT" 
+        self.send(DS_INSTRUMENTS_ABORT_SWEEP_MESSAGE)
+
 
     def send(self, msg):
         terminated_msg = msg + self.send_eol
