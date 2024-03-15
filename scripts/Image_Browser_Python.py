@@ -57,9 +57,9 @@ IMAGE_EXTENSION = ".fits"
 ABSORPTION_LIMIT = 5.0
 SPECIAL_CHARACTERS = "!@#$%^&*()-+?_=,<>/"
 
-ALLOWED_RESONANCE_TYPES = ["12_AB", "12_BA",  "21_AB", "21_BA", 
-                         "13_AB", "13_BA", "31_AB", "31_BA", 
-                         "23_AB", "23_BA", "32_AB", "32_BA"]
+ALLOWED_RESONANCE_TYPES = ["12_AB", "12_BA",  "21_BA", "21_AB", 
+                         "13_AB", "13_BA", "31_BA", "31_AB", 
+                         "23_AB", "23_BA", "32_BA", "32_AB"]
 
 RF_DIRECTIONS = [
     "1 to 2, Imaging 1 then 2",
@@ -2281,13 +2281,17 @@ class BEC1_Portal():
 
     def rf_analyze_with_guess_button(self):        
         # need add guesses here
-        Rabi_guess = self.Rabi_guess_var.get()
-        RF_center_guess = self.RF_center_guess_var.get()
-        if Rabi_guess == '':
-            Rabi_guess = None
-        if RF_center_guess == '':
-            RF_center_guess = None
-        rf_spect_processing.main_after_inputs(self.rf_processing_folder_path, self.rf_resonance_key, RF_center_guess, Rabi_guess)        
+        rabi_guess_str = self.Rabi_guess_var.get()
+        rf_center_guess_str = self.RF_center_guess_var.get()
+        if rabi_guess_str == '':
+            rabi_guess = None
+        else:
+            rabi_guess = float(rabi_guess_str)
+        if rf_center_guess_str == '':
+            rf_center_guess = None
+        else:
+            rf_center_guess = float(rf_center_guess_str)
+        rf_spect_processing.main_after_inputs(self.rf_processing_folder_path, self.rf_resonance_key, center_guess_MHz = rf_center_guess, rabi_freq_guess = rabi_guess)        
 
     def RF_imaging_options(self, event):
         RF_direction = self.RF_direction.get()
