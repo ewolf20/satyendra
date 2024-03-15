@@ -38,6 +38,7 @@ NA_LOCK_ERROR_THRESHOLD_MV = 25
 
 #Li lock config params
 LI_LOCK_PEAK_THRESHOLD = 1250
+LI_LOCK_PEAK_DISTANCE = 20
 LI_LOCK_BOOSTER_MIN_LOCATION = int(LOCK_BLOCK_SIZE * (0.002 / 0.006))
 LI_LOCK_BOOSTER_MAX_LOCATION = int(LOCK_BLOCK_SIZE * (0.0023 / 0.006))
 LI_LOCK_TRIGGER_LEVEL_ADJUST_INCREMENT = 100
@@ -66,7 +67,7 @@ LI_SCOPE_FIXED_PARAMS = [LI_SCOPE_SERIAL, LI_SCOPE_CHANNEL_A_RANGE_MV,
 LI_SCOPE_TRIGGER_FIXED_PARAMS = [LI_SCOPE_TRIGGER_DIRECTION, LI_SCOPE_TRIGGER_CHANNEL]
 
 #Na scope config params 
-NA_SCOPE_SERIAL = b'JO247/0361'
+NA_SCOPE_SERIAL = b'JY214/4314'
 NA_SCOPE_CHANNEL_A_RANGE_MV = 500 
 NA_SCOPE_CHANNEL_B_RANGE_MV = 10000
 
@@ -144,7 +145,7 @@ def main(initial_trigger_level):
 
                 li_ydata_traces = get_scope_traces(li_picoscope)
                 li_fp_trace = li_ydata_traces[1]
-                fp_peak_indices, fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
+                fp_peak_indices, fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD, distance = LI_LOCK_PEAK_DISTANCE)
                 update_li_plot(li_figure_tuple, li_ydata_traces, fp_peak_indices)
 
                 #Li error handling
@@ -380,7 +381,7 @@ def initialize_li_fp_peaks(initialization_samples, li_scope, li_scope_trigger_le
     while initialization_counter < initialization_samples:
         li_traces = get_scope_traces(li_scope)
         li_fp_trace = li_traces[1]
-        li_fp_peak_indices, li_fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD)
+        li_fp_peak_indices, li_fp_peak_properties = find_peaks(li_fp_trace, height = LI_LOCK_PEAK_THRESHOLD, distance = LI_LOCK_PEAK_DISTANCE)
         update_li_plot(li_figure_tuple, li_traces, li_fp_peak_indices)
         if len(li_fp_peak_indices) == 4:
             booster_peak_index, *_ = li_fp_peak_indices 

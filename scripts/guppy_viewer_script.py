@@ -29,7 +29,7 @@ def main():
                 current_frame = cam.get_video_frame(recency = "newest")
                 if not current_frame is None:
                     print("Got frame")
-                    plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = pixel_max, cmap="gray")
+                    plotting_utilities.update_live_plot_imshow(current_frame, ax = ax, vmin = 0, vmax = pixel_max, cmap="gray", origin = "lower")
         finally:
             cam.stop_video()
 
