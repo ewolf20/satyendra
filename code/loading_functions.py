@@ -82,12 +82,15 @@ whose name is parsable as a date lying between the specified datetimes, inclusiv
 directory_spec_list: A list of strings. If passed, then only directories whose names appear in directory_spec_list (note: these 
 are base names) will be modified. 
 
+update_datetime: The (logical) datetime at which the value was updated. For instance, if the measurement made to update a value was made 
+on January 1, and today is June 1, then January 1 would be specified here.
+
 If both date_range and directory_spec_list are passed, then the intersection of their domains is used.
     """
 
 RETROACTIVE_UPDATE_PREVIOUS_REPLACED_STRING = "Previous_Replaced_On"
 def retroactive_update_existing_experiment_parameters(root_folder_pathname, key, value, save_previous = True, 
-                                                date_range = None, directory_spec_list = None):
+                                                date_range = None, directory_spec_list = None, update_datetime = None):
     pathname_to_modify_list = _retroactive_update_directory_finder_helper(root_folder_pathname, date_range = date_range, 
                                         directory_spec_list = directory_spec_list)
     for pathname_to_modify in pathname_to_modify_list:
@@ -96,14 +99,15 @@ def retroactive_update_existing_experiment_parameters(root_folder_pathname, key,
             existing_dict = json.load(json_file)
         existing_dict_values = existing_dict["Values"]
         existing_dict_update_times = existing_dict["Update_Times"]
-        current_datetime = datetime.datetime.now()
+        if update_datetime is None:
+            update_datetime = datetime.datetime.now()
         if key in existing_dict_values and save_previous:
             previous_key = "{0}_{1}_{2}".format(key, RETROACTIVE_UPDATE_PREVIOUS_REPLACED_STRING,
-                                 current_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING))
+                                 update_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING))
             existing_dict_values[previous_key] = existing_dict_values[key] 
             existing_dict_update_times[previous_key] = existing_dict_update_times[key]
         existing_dict_values[key] = value 
-        existing_dict_update_times[key] = current_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING)
+        existing_dict_update_times[key] = update_datetime.strftime(CENTRAL_PARAMETERS_DATETIME_FORMAT_STRING)
         #Temporarily copy the file in case something goes wrong
         temp_experiment_parameters_path = experiment_parameters_path + "TEMP"
         shutil.copy2(experiment_parameters_path, temp_experiment_parameters_path)
