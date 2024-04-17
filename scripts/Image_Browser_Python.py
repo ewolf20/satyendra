@@ -89,26 +89,26 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         'Counts Top B (abs)', 
                         #'Counts Top AB (abs)', 
                         'Counts Top A (PR)',
-                        'Counts Top B (PR)', 
-                        'Axial Squish Mu Balanced (PR)',
-                        'Axial Squish T Balanced (PR)',
-                        'Axial Squish Mu Imbalanced (PR)',
-                        'Axial Squish T Imbalanced (PR)'
+                        'Counts Top B (PR)',
+                        'Imbalance (PR)',
+                        'T over Mu Balanced (PR)',
+                        'T over Mu Imbalanced (PR)',
                         'Custom Function 1',
                         'Custom Function 2'
                         ]
 
-def mu_balanced_splitoff_function(my_measurement, my_run, **kwargs):
-    return analysis_functions.get_balanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[0]
+def T_over_mu_balanced_function(my_measurement, my_run, **kwargs):
+    mu, T = analysis_functions.get_balanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)
+    return T / mu
 
-def T_balanced_splitoff_function(my_measurement, my_run, **kwargs):
-    return analysis_functions.get_balanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[1]
+def T_over_mu_imbalanced_function(my_measurement, my_run, **kwargs):
+    mu, T = analysis_functions.get_imbalanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)
+    return T / mu
 
-def mu_imbalanced_splitoff_function(my_measurement, my_run, **kwargs):
-    return analysis_functions.get_imbalanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[0]
-
-def T_imbalanced_splitoff_function(my_measurement, my_run, **kwargs):
-    return analysis_functions.get_imbalanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[1]
+def polrot_imbalance_function(my_measurement, my_run, **kwargs):
+    counts_1 = my_run.analysis_results["Counts Top A (PR)"]
+    counts_3 = my_run.analysis_results["Counts Top B (PR)"]
+    return (counts_3 - counts_1) / (counts_3 + counts_1)
 
 ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         analysis_functions.get_od_pixel_sum_na_catch,
@@ -122,10 +122,9 @@ ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         #analysis_functions.get_atom_counts_top_AB_abs,
                         analysis_functions.get_atom_counts_top_polrot,
                         analysis_functions.get_atom_counts_top_polrot,
-                        mu_balanced_splitoff_function, 
-                        T_balanced_splitoff_function, 
-                        mu_imbalanced_splitoff_function,
-                        T_imbalanced_splitoff_function,
+                        polrot_imbalance_function,
+                        T_over_mu_balanced_function, 
+                        T_over_mu_imbalanced_function,
                         custom_la.custom_func_1,
                         custom_la.custom_func_2
                         ]
@@ -136,7 +135,10 @@ TO_DENSITY = {'Counts Side LF' : analysis_functions.get_atom_density_side_li_lf,
                 'Counts Top B (abs)' : analysis_functions.get_atom_density_top_B_abs, 
                 #'Counts Top AB (abs)' : analysis_functions.get_atom_densities_top_abs, 
                 'Counts Top A (PR)' : analysis_functions.get_atom_densities_top_polrot,
-                'Counts Top B (PR)' : analysis_functions.get_atom_densities_top_polrot}
+                'Counts Top B (PR)' : analysis_functions.get_atom_densities_top_polrot,
+                'Imbalance (PR)': analysis_functions.get_atom_densities_top_polrot,
+                'T over Mu Balanced (PR)' : analysis_functions.get_atom_densities_top_polrot,
+                'T over Mu Imbalanced (PR)' : analysis_functions.get_atom_densities_top_polrot}
 
 DENSITIES = {'Density Side LF' : analysis_functions.get_atom_density_side_li_lf, 
                 'Density Side HF' : analysis_functions.get_atom_density_side_li_hf,
@@ -2761,6 +2763,8 @@ class BEC1_Portal():
                                         self.current_measurement.add_to_live_analyses(analysis_functions.get_atom_counts_top_polrot, ('Counts Top A (PR)', 'Counts Top B (PR)'), 
                                                                                     fun_kwargs = {'first_stored_density_name': 'Density Top A (PR)', 'second_stored_density_name': 'Density Top B (PR)'})    
                                         added_density_analysis_fns.append(analysis_functions.get_atom_densities_top_polrot.__name__)
+                                    self.current_measurement.add_to_live_analyses(ANALYSIS_FUNCTIONS[index_q], q, 
+                                    fun_kwargs = {'first_stored_density_name': 'Density Top A (PR)', 'second_stored_density_name': 'Density Top B (PR)'})
 
                         elif q in list(DENSITIES.keys()):
                             index_q = list(DENSITIES.keys()).index(q)
