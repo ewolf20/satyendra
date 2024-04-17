@@ -90,9 +90,25 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         #'Counts Top AB (abs)', 
                         'Counts Top A (PR)',
                         'Counts Top B (PR)', 
+                        'Axial Squish Mu Balanced (PR)',
+                        'Axial Squish T Balanced (PR)',
+                        'Axial Squish Mu Imbalanced (PR)',
+                        'Axial Squish T Imbalanced (PR)'
                         'Custom Function 1',
                         'Custom Function 2'
                         ]
+
+def mu_balanced_splitoff_function(my_measurement, my_run, **kwargs):
+    return analysis_functions.get_balanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[0]
+
+def T_balanced_splitoff_function(my_measurement, my_run, **kwargs):
+    return analysis_functions.get_balanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[1]
+
+def mu_imbalanced_splitoff_function(my_measurement, my_run, **kwargs):
+    return analysis_functions.get_imbalanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[0]
+
+def T_imbalanced_splitoff_function(my_measurement, my_run, **kwargs):
+    return analysis_functions.get_imbalanced_axial_squish_fitted_mu_and_T(my_measurement, my_run, **kwargs)[1]
 
 ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         analysis_functions.get_od_pixel_sum_na_catch,
@@ -105,7 +121,11 @@ ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         analysis_functions.get_atom_count_top_B_abs,
                         #analysis_functions.get_atom_counts_top_AB_abs,
                         analysis_functions.get_atom_counts_top_polrot,
-                        analysis_functions.get_atom_counts_top_polrot, 
+                        analysis_functions.get_atom_counts_top_polrot,
+                        mu_balanced_splitoff_function, 
+                        T_balanced_splitoff_function, 
+                        mu_imbalanced_splitoff_function,
+                        T_imbalanced_splitoff_function,
                         custom_la.custom_func_1,
                         custom_la.custom_func_2
                         ]
