@@ -94,7 +94,9 @@ MEASURE_QUANTITIES = ['Pixel sum side',
                         'T over Mu Balanced (PR)',
                         'T over Mu Imbalanced (PR)',
                         'Custom Function 1',
-                        'Custom Function 2'
+                        'Custom Function 2', 
+                        'Custom Function 3',
+                        'Custom Function 4'
                         ]
 
 def T_over_mu_balanced_function(my_measurement, my_run, **kwargs):
@@ -126,7 +128,9 @@ ANALYSIS_FUNCTIONS = [analysis_functions.get_od_pixel_sum_side,
                         T_over_mu_balanced_function, 
                         T_over_mu_imbalanced_function,
                         custom_la.custom_func_1,
-                        custom_la.custom_func_2
+                        custom_la.custom_func_2, 
+                        custom_la.custom_func_3,
+                        custom_la.custom_func_4
                         ]
 
 TO_DENSITY = {'Counts Side LF' : analysis_functions.get_atom_density_side_li_lf, 
@@ -2737,12 +2741,8 @@ class BEC1_Portal():
                             #First handle custom functions with dynamic reloading
                             if 'Custom' in q:
                                 importlib.reload(custom_la)
-                                if '1' in q:
-                                    custom_func = custom_la.custom_func_1 
-                                elif '2' in q:
-                                    custom_func = custom_la.custom_func_2 
-                                else:
-                                    custom_func = None
+                                custom_func_index = int(q.split("Custom Function ")[-1])
+                                custom_func = getattr(custom_la, "custom_func_{0:d}".format(custom_func_index))
                                 self.current_measurement.add_to_live_analyses(custom_func, q, fun_kwargs = None, run_filter = None)
                             # see if q requires density calculation: no if doing pixel sum
                             elif 'Pixel' in q:
