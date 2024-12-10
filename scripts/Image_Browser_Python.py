@@ -699,10 +699,11 @@ class BEC1_Portal():
 
         self.RF_direction_label = Label(self.tab1, text="RF transfer: ").place(x=1360, y=607)
         self.RF_direction = StringVar()
-        self.RF_direction.set( "1 to 2, Imaging 1 then 2")
+        INITIAL_DIRECTION_INDEX = 0
+        self.RF_direction.set(RF_DIRECTIONS[INITIAL_DIRECTION_INDEX])
         self.RF_directions_menu = OptionMenu(self.tab1, self.RF_direction, *RF_DIRECTIONS, command = self.RF_imaging_options)
         self.RF_directions_menu.place(x = 1445, y = 600)
-        self.rf_resonance_key = self.RF_direction.get()     
+        self.rf_resonance_key = ALLOWED_RESONANCE_TYPES[INITIAL_DIRECTION_INDEX]    
 
         self.Rabi_guess_var = StringVar()
         self.RF_center_guess_var = StringVar()
