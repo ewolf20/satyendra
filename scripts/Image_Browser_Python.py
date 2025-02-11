@@ -153,7 +153,7 @@ DENSITIES = {'Density Side LF' : analysis_functions.get_atom_density_side_li_lf,
                 'Density Top B (PR)' : analysis_functions.get_atom_densities_top_polrot,
                 'Densities(z) Box Exp (PR)' : analysis_functions.get_hybrid_trap_densities_along_harmonic_axis}
 
-IMAGING_RESONANCE_TYPES = ['Top A', 'Top B', 'Top AB', 'Side HF', 'Side LF']
+IMAGING_RESONANCE_TYPES = imaging_resonance_processing.SUPPORTED_IMAGE_TYPES
 
 # TODO: zip measure_quantities and analysis functions together
 
@@ -657,31 +657,13 @@ class BEC1_Portal():
         self.res_image_folder_entry = Entry(self.tab1, text="Resonance imaging folder name", width=53)
         self.res_image_folder_entry.place(x = 1445, y = 463)
 
-        self.resonance_imaging_mode = 'TopAB' # set to this by default
-
-        self.side_lf_bttn = Button(self.tab1, text="Side LF", relief="raised",  width=7, command= self.side_lf)
-        self.side_lf_bttn.place(x=1360,y=495)
-        self.side_lf_bttn["state"] = DISABLED
-
-        self.side_hf_bttn = Button(self.tab1, text="Side HF", relief="raised",  width=7, command= self.side_hf)
-        self.side_hf_bttn.place(x=275+1160-5,y=495)
-        self.side_hf_bttn["state"] = DISABLED
-
-        self.TopA_bttn = Button(self.tab1, text="Top A", relief="raised",  width=7, command= self.TopA)
-        self.TopA_bttn.place(x=350+1160-10,y=495)
-        self.TopA_bttn["state"] = DISABLED
-
-        self.TopB_bttn = Button(self.tab1, text="Top B", relief="raised",  width=7, command= self.TopB)
-        self.TopB_bttn.place(x=425+1160-15,y=495)
-        self.TopB_bttn["state"] = DISABLED
-
-        self.TopAB_bttn = Button(self.tab1, text="Top AB", relief="raised",  width=7, command= self.TopAB)
-        self.TopAB_bttn.place(x=500+1160-20,y=495)
-        self.TopAB_bttn["state"] = DISABLED
+        self.resonance_imaging_mode_var = StringVar()
+        self.resonance_imaging_mode_var.set(IMAGING_RESONANCE_TYPES[0]) # set to this by default
+        self.resonance_imaging_mode_menu_tab1 = OptionMenu(self.tab1, self.resonance_imaging_mode_var, *IMAGING_RESONANCE_TYPES, command = self.choose_imaging_resonance_type)
+        self.resonance_imaging_mode_menu_tab1.place(x=1360, y=495)
 
         self.analyze_bttn = Button(self.tab1, text="Do It", relief="raised",  width=7, command= self.analyze_button)
-        self.analyze_bttn.place(x=575+1160-25,y=495)
-        self.analyze_bttn["state"] = DISABLED
+        self.analyze_bttn.place(x=1460,y=495)
 
         self.line5 = Label(self.tab1, text='---------------------------------------------------------------------------------')
         self.line5.place(x=1360, y = 495+25)
@@ -1068,30 +1050,30 @@ class BEC1_Portal():
         self.line2_live_analysis = Label(self.tab2, text='----------------------------------------------------------------------------------------------')
         self.line2_live_analysis.place(x=1420, y = 575)
 
-        # fitting label:
-        self.live_analysis_label = Label(self.tab2, text="Data Fitting: ", font=('TkDefaultFont', 10, 'bold'))
-        self.live_analysis_label.place(x = 1420, y = 595)
+        # # fitting label:
+        # self.live_analysis_label = Label(self.tab2, text="Data Fitting: ", font=('TkDefaultFont', 10, 'bold'))
+        # self.live_analysis_label.place(x = 1420, y = 595)
 
-        # which figure to curve fit:
-        self.data_fit_figure = StringVar()
-        self.data_fit_figure.set(LIVE_FIGURES[0])
-        self.data_fit_figure_menu = OptionMenu(self.tab2, self.data_fit_figure, *LIVE_FIGURES, command = self.choose_figure_for_data_fit)
-        self.data_fit_figure_menu.place(x = 1520, y = 591)
+        # # which figure to curve fit:
+        # self.data_fit_figure = StringVar()
+        # self.data_fit_figure.set(LIVE_FIGURES[0])
+        # self.data_fit_figure_menu = OptionMenu(self.tab2, self.data_fit_figure, *LIVE_FIGURES, command = self.choose_figure_for_data_fit)
+        # self.data_fit_figure_menu.place(x = 1520, y = 591)
 
-        # imaging resonance fit:
-        self.imaging_resonance_fit_type_label = Label(self.tab2, text="Imaging resonance fit: ")
-        self.imaging_resonance_fit_type_label.place(x=1420, y = 633)
+        # # imaging resonance fit:
+        # self.imaging_resonance_fit_type_label = Label(self.tab2, text="Imaging resonance fit: ")
+        # self.imaging_resonance_fit_type_label.place(x=1420, y = 633)
 
-        # imaging resonance fit menu:
-        self.imaging_resonance_fit_type = StringVar()
-        self.imaging_resonance_fit_type.set(IMAGING_RESONANCE_TYPES[0])
-        self.imaging_resonance_fit_type_menu = OptionMenu(self.tab2, self.imaging_resonance_fit_type, *IMAGING_RESONANCE_TYPES, command = self.choose_imaging_resonance_type)
-        self.imaging_resonance_fit_type_menu.configure(width=12)
-        self.imaging_resonance_fit_type_menu.place(x = 1560, y = 627)
+        # # imaging resonance fit menu:
+        # self.imaging_resonance_fit_type = StringVar()
+        # self.imaging_resonance_fit_type.set(IMAGING_RESONANCE_TYPES[0])
+        # self.imaging_resonance_fit_type_menu = OptionMenu(self.tab2, self.imaging_resonance_fit_type, *IMAGING_RESONANCE_TYPES, command = self.choose_imaging_resonance_type)
+        # self.imaging_resonance_fit_type_menu.configure(width=12)
+        # self.imaging_resonance_fit_type_menu.place(x = 1560, y = 627)
 
-        # do it button for imaging resonance fit:
-        self.imaging_resonance_fit_do_it_bttn = Button(self.tab2, text="Do It", relief="raised",  width=7, command= self.imaging_resonance_fit_do_it_button)
-        self.imaging_resonance_fit_do_it_bttn.place(x=1700,y=629)
+        # # do it button for imaging resonance fit:
+        # self.imaging_resonance_fit_do_it_bttn = Button(self.tab2, text="Do It", relief="raised",  width=7, command= self.imaging_resonance_fit_do_it_button)
+        # self.imaging_resonance_fit_do_it_bttn.place(x=1700,y=629)
 
 
 
@@ -2187,109 +2169,13 @@ class BEC1_Portal():
             self.res_image_folder_entry.delete(0,'end')
             self.res_image_folder_entry.insert(0, self.image_processing_folder_path)
             # print(self.image_processing_folder_path)
-            self.enable_resonance_imaging_mode_buttons()
 
-    def enable_resonance_imaging_mode_buttons(self):
-        # enable buttons:
-        self.side_lf_bttn["state"] = NORMAL
-        self.side_hf_bttn["state"] = NORMAL
-        self.TopA_bttn["state"] = NORMAL
-        self.TopB_bttn["state"] = NORMAL
-        self.TopAB_bttn["state"] = NORMAL
-        self.analyze_bttn["state"] = DISABLED
 
-    def side_lf(self):
-        if self.side_lf_bttn.config('relief')[-1] == 'sunken':
-            self.side_lf_bttn.config(relief="raised")
-            self.side_lf_bttn.config(fg='black')
-            
-            self.enable_resonance_imaging_mode_buttons()
-        else:
-            self.side_lf_bttn.config(relief="sunken")  
-            self.side_lf_bttn.config(fg='red')
-            self.resonance_imaging_mode = 'Side_lf'
-            # enable buttons:
-            self.side_hf_bttn["state"] = DISABLED
-            self.TopA_bttn["state"] = DISABLED
-            self.TopB_bttn["state"] = DISABLED
-            self.TopAB_bttn["state"] = DISABLED
-            self.analyze_bttn["state"] = NORMAL
-
-    def side_hf(self):
-        if self.side_hf_bttn.config('relief')[-1] == 'sunken':
-            self.side_hf_bttn.config(relief="raised")
-            self.side_hf_bttn.config(fg='black')
-            
-            self.enable_resonance_imaging_mode_buttons()
-        else:
-            self.side_hf_bttn.config(relief="sunken")  
-            self.side_hf_bttn.config(fg='red')
-            self.resonance_imaging_mode = 'Side_hf'
-            # enable buttons:
-            self.side_lf_bttn["state"] = DISABLED
-            self.TopA_bttn["state"] = DISABLED
-            self.TopB_bttn["state"] = DISABLED
-            self.TopAB_bttn["state"] = DISABLED
-
-            self.analyze_bttn["state"] = NORMAL
-
-    def TopA(self):
-        if self.TopA_bttn.config('relief')[-1] == 'sunken':
-            self.TopA_bttn.config(relief="raised")
-            self.TopA_bttn.config(fg='black')
-            
-            self.enable_resonance_imaging_mode_buttons()
-        else:
-            self.TopA_bttn.config(relief="sunken")  
-            self.TopA_bttn.config(fg='red')
-            self.resonance_imaging_mode = 'TopA'
-            # enable buttons:
-            self.side_lf_bttn["state"] = DISABLED
-            self.side_hf_bttn["state"] = DISABLED
-            self.TopB_bttn["state"] = DISABLED
-            self.TopAB_bttn["state"] = DISABLED
-
-            self.analyze_bttn["state"] = NORMAL
-
-    def TopB(self):
-        if self.TopB_bttn.config('relief')[-1] == 'sunken':
-            self.TopB_bttn.config(relief="raised")
-            self.TopB_bttn.config(fg='black')
-            
-            self.enable_resonance_imaging_mode_buttons()
-        else:
-            self.TopB_bttn.config(relief="sunken")  
-            self.TopB_bttn.config(fg='red')
-            self.resonance_imaging_mode ='TopB'
-            # enable buttons:
-            self.side_hf_bttn["state"] = DISABLED
-            self.side_lf_bttn["state"] = DISABLED
-            self.TopA_bttn["state"] = DISABLED
-            self.TopAB_bttn["state"] = DISABLED
-            self.analyze_bttn["state"] = NORMAL
-
-    def TopAB(self):
-        if self.TopAB_bttn.config('relief')[-1] == 'sunken':
-            self.TopAB_bttn.config(relief="raised")
-            self.TopAB_bttn.config(fg='black')
-            
-            self.enable_resonance_imaging_mode_buttons()
-        else:
-            self.TopAB_bttn.config(relief="sunken")  
-            self.TopAB_bttn.config(fg='red')
-            self.resonance_imaging_mode = 'TopAB'
-            # enable buttons:
-            self.side_hf_bttn["state"] = DISABLED
-            self.TopA_bttn["state"] = DISABLED
-            self.TopB_bttn["state"] = DISABLED
-            self.side_lf_bttn["state"] = DISABLED
-            self.analyze_bttn["state"] = NORMAL
 
     def analyze_button(self):
         # print(self.resonance_imaging_mode)
-        self.analyze_bttn["state"] = DISABLED
         measurement_directory_path = self.image_processing_folder_path
-        imaging_mode_string = self.resonance_imaging_mode
+        imaging_mode_string = self.resonance_imaging_mode_var.get()
         # talk to imaging_resonance_processing
         imaging_resonance_processing.main_after_inputs(measurement_directory_path,imaging_mode_string)
     
