@@ -65,6 +65,10 @@ class SlackBot():
         self.rate_limit_per_min = rate_limit_per_min
         self.running_query_rate_per_min = 0.0
 
+        last_message = self._query_message_history(1, cap_timestep = False)[0]
+        last_message_timestep = float(last_message["ts"])
+        self.last_read_timestep = last_message_timestep
+
 
     """Method for posting messages.
 
@@ -95,6 +99,28 @@ class SlackBot():
         except SlackApiError as e:
             raise e
 
+    PORTAL_HANDLER_KEY = "#PORTAL"
+
+    def post_portal_message(self, message):
+        portal_prepended_message = "#PORTAL:{0}".format(message)
+        self.post_message(portal_prepended_message, mention = ["Bot"])
+
+
+    def retrieve_portal_messages(self):
+        PORTAL_RETRIEVE_DEPTH = 10
+        storage_list = [] 
+        portal_handler_extra_args = (storage_list,)
+        self.handle_bot_mentions(request_string = SlackBot.PORTAL_HANDLER_KEY, 
+        request_extra_args = portal_handler_extra_args, request_function = SlackBot._retrieve_portal_request_function, 
+        exclude_self = False, search_depth = PORTAL_RETRIEVE_DEPTH, include_default_handlers = False)
+        return storage_list 
+
+    @staticmethod
+    def _retrieve_portal_request_function(bot, message, storage_list):
+        portal_message = message["text"].split(":")[1]
+        storage_list.append(portal_message)
+        pass
+
     """Uploads a file.
 
     Given a file, uploads it to slack and posts it in the channel configured for the bot.
@@ -120,6 +146,31 @@ class SlackBot():
         pass
 
 
+    def _query_message_history(self, search_depth, cap_timestep = True):
+        if not self._validate_rate_limit():
+            warnings.warn("Rate limit; operation not performed.")
+            return None
+        PAGE_SIZE_LIMIT = 100
+        results_queried = 0
+        page_size = min(search_depth, PAGE_SIZE_LIMIT)
+        current_cursor = None
+        message_list = []
+        while results_queried < search_depth:
+            response = self.client.conversations_history(channel = self.channel_id, limit = page_size, cursor = current_cursor)
+            response_messages = response['messages']
+            if cap_timestep:
+                response_messages_post_timestep = [m for m in response_messages if float(m["ts"]) > self.last_read_timestep] 
+                message_list.extend(response_messages_post_timestep) 
+                if len(response_messages_post_timestep) < len(response_messages): 
+                    break
+            else:
+                message_list.extend(response_messages)
+            results_queried += page_size 
+            current_cursor = response['response_metadata']['next_cursor']
+        if len(message_list) > 0:
+            self.last_read_timestamp = float(message_list[-1]["ts"])
+        return message_list
+
     """Gets recent mentions of the bot. 
         When called, return a list of recent messages (in order newest->oldest) sent with the intent of mentioning the bot. 
 
@@ -136,24 +187,14 @@ class SlackBot():
 
 
 
-    def _get_recent_mentions(self, mention_string, search_depth):
-        if not self._validate_rate_limit():
-            warnings.warn("Rate limit; operation not performed.")
-            return None
-        PAGE_SIZE_LIMIT = 100
-        results_queried = 0
-        page_size = min(search_depth, PAGE_SIZE_LIMIT)
-        current_cursor = None
-        mention_message_list = []
-        while results_queried < search_depth:
-            response = self.client.conversations_history(channel = self.channel_id, limit = page_size, cursor = current_cursor)
-            response_messages = response['messages']
-            user_generated_messages = [m for m in response_messages if not self.bot_id == m['user']]
-            user_generated_messages_with_mention = [m for m in user_generated_messages if mention_string in m['text']]
-            mention_message_list.extend(user_generated_messages_with_mention)
-            results_queried += page_size 
-            current_cursor = response['response_metadata']['next_cursor']
-        return mention_message_list 
+    def _get_recent_mentions(self, mention_string, search_depth, exclude_self = True):
+        message_list = self._query_message_history(search_depth)
+        if exclude_self:
+            included_messages = [m for m in message_list if not self.bot_id == m['user']]
+        else:
+            included_messages = message_list 
+        messages_with_mention = [m for m in included_messages if mention_string in m['text']]
+        return messages_with_mention
 
 
     """When called, handle all mentions of the bot.
@@ -161,19 +202,25 @@ class SlackBot():
     When called, have the bot respond to all outstanding messages with a mention of its name in the """
 
     def handle_bot_mentions(self, request_string = None, request_function = None,
-                            request_extra_args = None, mention_string = None, search_depth = 100):
+                            request_extra_args = None, mention_string = None, search_depth = 3,
+                            exclude_self = True, include_default_handlers = True):
         if mention_string is None:
             mention_string = "<@{0}>".format(self.bot_id)
-        handler_string_list = copy.copy(SlackBot.DEFAULT_HANDLER_STRINGS)
-        handler_func_list = copy.copy(SlackBot.DEFAULT_HANDLER_FUNCS)
-        handler_extra_arg_list = copy.copy(SlackBot.DEFAULT_HANDLER_EXTRA_ARGS)
+        if include_default_handlers:
+            handler_string_list = copy.copy(SlackBot.DEFAULT_HANDLER_STRINGS)
+            handler_func_list = copy.copy(SlackBot.DEFAULT_HANDLER_FUNCS)
+            handler_extra_arg_list = copy.copy(SlackBot.DEFAULT_HANDLER_EXTRA_ARGS)
+        else:
+            handler_string_list = [] 
+            handler_func_list = [] 
+            handler_extra_arg_list = []
         if not request_string is None:
             handler_string_list.append(request_string)
             handler_func_list.append(request_function)
             if request_extra_args is None:
                 request_extra_args = ()
             handler_extra_arg_list.append(request_extra_args)
-        mentioned_messages = self._get_recent_mentions(mention_string, search_depth)
+        mentioned_messages = self._get_recent_mentions(mention_string, search_depth, exclude_self = exclude_self)
         for message in mentioned_messages:
             message_ts = message['ts']
             if message_ts in self.handled_message_ts_list:
