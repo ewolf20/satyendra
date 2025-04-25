@@ -44,30 +44,34 @@ def main():
     dmd_pixel_size_um = dmd_config_dict["row_pitch_um"] * dmd_config_dict["column_pitch_multiplier"]
 
 
-    IMAGE_SIZE = 501
-    y_indices, x_indices = np.indices((IMAGE_SIZE, IMAGE_SIZE))
+    
+    ELLIPSE_OFFSET_X = 30
+    ELLIPSE_OFFSET_Y = -25
+    ELLIPSE_X_RADIUS_PIX = 155
+    ELLIPSE_ASPECT_RATIO_Y_OVER_X = 1.00
 
-    center_offset = (IMAGE_SIZE - 1) // 2
+    ellipse_max_radius = max([ELLIPSE_X_RADIUS_PIX, ELLIPSE_ASPECT_RATIO_Y_OVER_X * ELLIPSE_X_RADIUS_PIX])
+    image_size = 2 * ellipse_max_radius + 10
+    y_indices, x_indices = np.indices((image_size, image_size))
+
+    center_offset = (image_size - 1) // 2
 
 
     x_indices_centered = x_indices - center_offset
     y_indices_centered = y_indices - center_offset
-    
-    ELLIPSE_OFFSET_X = -75
-    ELLIPSE_OFFSET_Y = -30
-    ELLIPSE_X_RADIUS_PIX = 150
+
     ellipse_real_radius = ELLIPSE_X_RADIUS_PIX * dmd_pixel_size_um
 
     ellipse_pattern = ellipse_function(x_indices_centered, y_indices_centered, 
-                    ELLIPSE_OFFSET_X, ELLIPSE_OFFSET_Y, ELLIPSE_X_RADIUS_PIX, 
-                    1.0)
+                    0, 0, ELLIPSE_X_RADIUS_PIX, 
+                    ELLIPSE_ASPECT_RATIO_Y_OVER_X)
 
-    ellipse_dmd_array = dmd_image_processing.dmd_image_convert(ellipse_pattern, dmd_background_value = 1)
+    ellipse_dmd_array = dmd_image_processing.dmd_image_convert(ellipse_pattern, dmd_background_value = 1, image_offset = (ELLIPSE_OFFSET_Y, ELLIPSE_OFFSET_X))
     ellipse_basename = "Ellipse_Mask_Radius_{0:.1f}um".format(ellipse_real_radius)
     dmd_image_processing.convert_and_save_image(ellipse_dmd_array, ellipse_basename, show_plots = True)
 
     #Generate point pattern to test for aberrations
-    POINT_CENTER = (0, 0) 
+    POINT_CENTER = (0, 0)
     POINT_RADIUS_PIX = 1
     point_real_radius = POINT_RADIUS_PIX * dmd_pixel_size_um
 
@@ -78,7 +82,7 @@ def main():
 
 
     #Generate checkerboards to test for, respectively, inclusion of Fourier components and focusing sharpness
-    REAL_CHECKERBOARD_SIZE_PIX = 100
+    REAL_CHECKERBOARD_SIZE_PIX = 50
     real_checkerboard_real_feature_size = REAL_CHECKERBOARD_SIZE_PIX * dmd_pixel_size_um
     checkerboard_pattern_real = checkerboard_function(x_indices_centered, y_indices_centered, REAL_CHECKERBOARD_SIZE_PIX)
 
@@ -86,12 +90,29 @@ def main():
     fourier_checkerboard_real_feature_size = FOURIER_CHECKERBOARD_SIZE_PIX * dmd_pixel_size_um
     checkerboard_pattern_fourier = checkerboard_function(x_indices_centered, y_indices_centered, FOURIER_CHECKERBOARD_SIZE_PIX) 
 
-    real_checkerboard_dmd_array = dmd_image_processing.dmd_image_convert(checkerboard_pattern_real, dmd_background_value = 0) 
-    fourier_checkerboard_dmd_array = dmd_image_processing.dmd_image_convert(checkerboard_pattern_fourier, dmd_background_value = 0)
+    real_checkerboard_dmd_array = dmd_image_processing.dmd_image_convert(checkerboard_pattern_real, dmd_background_value = 0, image_offset = (ELLIPSE_OFFSET_Y, ELLIPSE_OFFSET_X)) 
+    fourier_checkerboard_dmd_array = dmd_image_processing.dmd_image_convert(checkerboard_pattern_fourier, dmd_background_value = 0, image_offset = (ELLIPSE_OFFSET_Y, ELLIPSE_OFFSET_X))
     real_checkerboard_basename = "Checkerboard_Block_Size_{0:.1f}um".format(real_checkerboard_real_feature_size) 
     fourier_checkerboard_basename = "Checkerboard_Block_Size_{0:.1f}um".format(fourier_checkerboard_real_feature_size)
     dmd_image_processing.convert_and_save_image(real_checkerboard_dmd_array, real_checkerboard_basename, show_plots = True)
     dmd_image_processing.convert_and_save_image(fourier_checkerboard_dmd_array, fourier_checkerboard_basename, show_plots = True)
+
+
+
+
+    #Add black and white test patterns for alignment
+    flat_pattern_ones = np.ones(x_indices_centered.shape)
+    flat_pattern_zeros = np.zeros(x_indices_centered.shape)
+
+    flat_pattern_ones_dmd_array = dmd_image_processing.dmd_image_convert(flat_pattern_ones, dmd_background_value = 1) 
+    flat_pattern_zeros_dmd_array = dmd_image_processing.dmd_image_convert(flat_pattern_zeros, dmd_background_value = 0) 
+    flat_pattern_ones_basename = "Flat_Pattern_One"
+    flat_pattern_zeros_basename = "Flat_Pattern_Zero"
+    dmd_image_processing.convert_and_save_image(flat_pattern_ones_dmd_array, flat_pattern_ones_basename) 
+    dmd_image_processing.convert_and_save_image(flat_pattern_zeros_dmd_array, flat_pattern_zeros_basename) 
+
+
+
     
     
     
