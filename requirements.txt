@@ -50,5 +50,4 @@ tomli==2.0.1
 tqdm==4.65.0
 tzdata==2023.3
 urllib3==1.26.15
-VimbaPython @ file:///C:/Users/BEC1%20Top/Repositories/VimbaPython%20Source
 yarl==1.8.2
